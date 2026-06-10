@@ -4,7 +4,7 @@ emoji: 🔬
 colorFrom: indigo
 colorTo: blue
 sdk: docker
-app_port: 8000
+app_port: 7860
 ---
 
 # Episteme Backend - Hugging Face Spaces Deployment Guide

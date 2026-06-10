@@ -1,167 +1,112 @@
-# Episteme 🔬 — Technical Architecture & Developer Guide
+<p align="center">
+  <img src="website/icon.png" alt="Episteme Logo" width="120" height="120" />
+</p>
 
-Episteme is a production-grade, multi-agent AI research companion and truth verification layer for scientific publications. It utilizes a parallelized LangGraph pipeline, NVIDIA NIM models, vector databases, and Chrome MV3 APIs to overlay scientific articles with real-time factual verification, citation auditing, bias indicators, and statistical replication checklists.
+<h1 align="center">Episteme 🔬</h1>
+
+<p align="center">
+  <strong>The Universal Research Intelligence & Truth Verification Layer.</strong>
+</p>
+
+<p align="center">
+  <a href="https://episteme-lens.vercel.app">
+    <img src="https://img.shields.io/badge/Vercel-Deployed-black?style=for-the-badge&logo=vercel" alt="Vercel Deployment" />
+  </a>
+  <a href="https://huggingface.co/spaces/nishith374/episteme-backend">
+    <img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-yellow?style=for-the-badge" alt="Hugging Face Space" />
+  </a>
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License: MIT" />
+  </a>
+</p>
+
+<p align="center">
+  Episteme is a premium developer-grade Chrome/Firefox extension and FastAPI agentic pipeline that overlays scientific publications with claim verification, COI bias scanners, statistical calculators, and semantic lineage graphs.
+</p>
 
 ---
 
-## 🏗️ System Architecture
+## 🎯 Key Capabilities
 
-```mermaid
-graph TD
-    A[Chrome Ext Context Script] -->|PostMessage| B[Service Worker/Background]
-    B -->|REST HTTP POST| C[FastAPI Gateway]
-    
-    subgraph LangGraph Orchestrator (DAG Pipeline)
-        C --> D[Node 1: Factual Claim Extractor]
-        D --> E[Node 2: Semantic Scholar/OpenAlex Retriever]
-        E --> F[Node 3: Integrity & Bias Scanner]
-        F --> G[Node 4: RAG Claim Verification Resolver]
-        G --> H[Node 5: Intelligence Synthesizer]
-        H --> I[Node 6: Open-Source Replication & Video Parser]
-    end
-    
-    subgraph Storage & Cache Layers
-        G -->|Cache Check| J[(Upstash Redis Cache)]
-        G -->|Embeddings Query| K[(Qdrant Cloud Vector DB)]
-        G -->|Document Cache| L[(Supabase PostgreSQL + pgvector)]
-    end
+* **Claim Verification Engine:** Extracts fact-based claims and matches them against **200M+ research papers** via Semantic Scholar and OpenAlex.
+* **COI Funding Bias Meter:** Visualizes funding sources (corporate vs. public vs. independent) dynamically.
+* **Statistical Power Calculator:** Local calculations of statistical power ($1-\beta$) based on sample sizes, effect sizes, and alpha levels.
+* **Evolution Timeline:** Shows ancestors, baselines, and successive mutations of research concepts.
+* **Author Impact Network:** Interactive network of researcher profiles, H-index meters, co-author relationships, and top cited papers.
+* **Obsidian-Ready Notebook:** In-context highlighting, jargon definitions, and Obsidian-compatible `.md` reviews export.
 
-    subgraph LLM Inference Engine
-        D & G & H -->|NIM Endpoints| M[NVIDIA NIM Server]
-        M -->|llama-3.1-70b-instruct| N[High-Fidelity Reasoning]
-        M -->|llama-3.1-8b-instruct| O[Low-Latency Filtering]
-        M -->|mixtral-8x7b-instruct| P[Structured JSON Extraction]
-    end
-    
-    I -->|Serialized Payload| C
-    C -->|Stream/Response| B
-    B -->|React State Update| Q[Sidebar Extension App UI]
+---
+
+## 🏗️ System Flow & Architecture
+
+```
+                       ┌────────────────────────────┐
+                       │     User Web Browser       │
+                       │   (React Chrome Extension) │
+                       └─────────────┬──────────────┘
+                                     │
+                           1. DOM / PDF Content
+                                     │
+                                     ▼
+                       ┌────────────────────────────┐
+                       │     Cloudflare Workers     │ (Edge Routing & Cache)
+                       └─────────────┬──────────────┘
+                                     │
+                          2. Serialized Paper Payload
+                                     │
+                                     ▼
+                       ┌────────────────────────────┐
+                       │    FastAPI Agent Gateway   │ (LangGraph Orchestrator)
+                       └──────┬──────────────┬──────┘
+                              │              │
+             3a. Factual Context             3b. AI Inference
+                              │              │
+                              ▼              ▼
+               ┌──────────────┐      ┌──────────────┐
+               │Semantic Sch. │      │  NVIDIA NIM  │ (LLaMA-3.1 70B/8B,
+               │OpenAlex APIs │      │  Mixtral 8B  │  nv-embedqa)
+               └──────────────┘      └──────────────┘
 ```
 
----
-
-## 🛠️ Tech Stack & Dependencies
-
-### Backend Engine
-* **Core:** Python 3.11, FastAPI, Uvicorn
-* **Agentic Framework:** LangGraph (StateGraph, MemorySaver)
-* **Libraries:** spaCy (NER, POS tagging), Pydantic v2 (Data Validation)
-
-### Frontend Layer
-* **Core:** React 19, TypeScript, Vite 6
-* **Visuals & Canvas:** HTML5 Canvas (force-directed graphs), HSL custom variables (Cyberpunk theme design system)
-
-### Cloud Infrastructure
-* **Vector DB:** Qdrant Cloud (1024-dimension NV-EmbedQA embeddings)
-* **Datastore:** Supabase PostgreSQL + `pgvector`
-* **In-Memory Cache:** Upstash Redis
-* **Inference Platform:** NVIDIA NIM API (LLaMA-3.1-70B, LLaMA-3.1-8B, Mixtral-8x7B)
+The pipeline runs as a **6-node parallelized LangGraph Directed Acyclic Graph (DAG)**:
+1. **Claim Extractor:** Segmentation and entity parsing using spaCy NER.
+2. **Context Resolver:** Fetching citation graphs and abstracts from Semantic Scholar.
+3. **Integrity Scanner:** Analyzing funding disclosures and methodology blocks.
+4. **Verification Resolver:** Grounding factual statements using vector indices.
+5. **Intelligence Synthesizer:** Generating mock drafts and future research directions.
+6. **Replication Finder:** Parsing Open-Source Docker/Code hubs for reproducibility checks.
 
 ---
 
-## 📡 API Specifications
+## 💻 Technology Stack
 
-### 1. Paper Analysis Endpoint
-* **Endpoint:** `POST /api/analyze`
-* **Request Schema:**
-  ```json
-  {
-    "title": "Attention Is All You Need",
-    "abstract": "We propose a new simple network architecture, the Transformer...",
-    "full_text": "...",
-    "doi": "10.48550/arXiv.1706.03762",
-    "arxiv_id": "1706.03762"
-  }
-  ```
-* **Response Excerpt (JSON):**
-  ```json
-  {
-    "status": "success",
-    "claims": [
-      {
-        "id": "claim_0",
-        "sentence": "The Transformer achieves 28.4 BLEU on the WMT 2014 English-to-German translation task.",
-        "verdict": "Verified",
-        "confidence": 0.98,
-        "evidence_papers": [
-          {
-            "title": "BLEU: a Method for Automatic Evaluation of Machine Translation",
-            "citation_url": "https://doi.org/10.3115/1073083.1073135"
-          }
-        ]
-      }
-    ],
-    "integrity": {
-      "coi_score": 0.15,
-      "reproducibility_factor": 0.85,
-      "methodology_flags": [],
-      "statistical_power": 0.95
-    },
-    "author_network": [
-      {
-        "name": "Ashish Vaswani",
-        "affiliation": "Google Brain",
-        "h_index": 42,
-        "co_authors": ["Noam Shazeer", "Niki Parmar"],
-        "top_papers": [
-          {
-            "title": "Attention Is All You Need",
-            "year": 2017,
-            "citations": 120000
-          }
-        ]
-      }
-    ]
-  }
-  ```
-
-### 2. Jargon Explainer
-* **Endpoint:** `POST /api/explain`
-* **Request Schema:**
-  ```json
-  {
-    "term": "Self-Attention Mechanism",
-    "context": "An attention mechanism relating different positions of a single sequence..."
-  }
-  ```
-
-### 3. Claim Contrastor (Side-by-Side Comparison)
-* **Endpoint:** `POST /api/compare`
-* **Request Schema:**
-  ```json
-  {
-    "paper_a_id": "arxiv_1706.03762",
-    "paper_b_id": "arxiv_2010.11929"
-  }
-  ```
+| Component | Stack | Role |
+| :--- | :--- | :--- |
+| **Extension UI** | React 19, TypeScript, HTML5 Canvas, HSL CSS | Sidebar Dashboard UI & Map Canvas |
+| **Backend Core** | FastAPI, Python 3.11, Uvicorn, Pydantic v2 | Gateway Router & Pipelines |
+| **Agentic Framework** | LangGraph | Multi-Agent Execution State |
+| **Model Serving** | NVIDIA NIM API | LLaMA 3.1 70B & 8B, Mixtral 8x7B |
+| **Vector Index** | Qdrant Cloud | NV-EmbedQA Document Embeddings |
+| **Cache & DB** | Supabase, Upstash Redis | pgvector Storage & Global Cache |
+| **Hosting** | Vercel, Hugging Face Spaces | Landing Page & Space API |
 
 ---
 
-## 🧩 Extension State & Storage Layout
+## ⚡ Quick Start
 
-The extension sidebar uses `chrome.storage.local` (falling back to standard browser `localStorage` in dev environments) to store paper highlights, custom annotations, and history profiles.
+### 📦 Load the Extension
+1. Build the static distribution files:
+   ```bash
+   cd extension
+   npm install
+   npm run build
+   ```
+2. Open `chrome://extensions` in Google Chrome (or `edge://extensions` in Edge).
+3. Toggle **Developer Mode** on.
+4. Click **Load Unpacked** and select the `/extension/dist` folder.
 
-```typescript
-interface NoteHighlight {
-  id: string;
-  paperId: string;
-  paperTitle: string;
-  text: string;       // The selected highlight
-  note: string;       // Custom developer notes/thoughts
-  timestamp: string;
-}
-
-// Storage Key Schema
-// "episteme_highlights_{paperId}" -> Array<NoteHighlight>
-// "episteme_history" -> Array<AnalysisHistoryItem>
-```
-
----
-
-## ⚡ Development & Setup Guide
-
-### Backend Service Setup
-1. Setup Python virtual environment:
+### 🐍 Run the API Server
+1. Setup Python virtual environment and dependencies:
    ```bash
    cd backend
    python -m venv .venv
@@ -169,70 +114,75 @@ interface NoteHighlight {
    pip install -r requirements.txt
    python -m spacy download en_core_web_sm
    ```
-2. Populate the `.env` configuration file:
+2. Configure `.env` using [.env.example](file:///c:/Users/nishi/Desktop/Episteme/backend/.env.example):
    ```env
-   NVIDIA_API_KEY=your_nvidia_nim_api_token
-   SUPABASE_URL=https://your-supabase-project.supabase.co
-   SUPABASE_KEY=your-supabase-service-role-key
-   QDRANT_URL=https://your-qdrant-cluster.cloud.qdrant.io
-   QDRANT_API_KEY=your-qdrant-api-key
-   UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
-   UPSTASH_REDIS_REST_TOKEN=your-redis-auth-token
+   NVIDIA_API_KEY=your_nvidia_nim_api_key
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_KEY=your_supabase_key
    ```
-3. Run the development server:
+3. Run local server:
    ```bash
-   python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-   ```
-
-### Browser Extension Setup
-1. Install node dependencies and run the hot-reloading builder:
-   ```bash
-   cd extension
-   npm install
-   npm run dev
-   ```
-2. Build for production compilation:
-   ```bash
-   npm run build
-   ```
-3. Open `chrome://extensions`, enable **Developer Mode**, click **Load Unpacked**, and select the `extension/dist` folder.
-
-### Marketing Page Setup
-1. The static web resource directory is located at `/website`.
-2. Run locally using Vercel Dev or any simple static server:
-   ```bash
-   cd website
-   npx vercel dev
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
    ```
 
 ---
 
-## 🧪 Verification & Build Pipelines
+## 🛠️ API Contracts & Data Schemas
 
-Before shipping or pushing code, ensure validation metrics are cleared:
+<details>
+<summary><b>1. POST /api/analyze (Analyze Research Paper)</b></summary>
 
-1. **Verify Backend Models and Schemas:**
-   ```bash
-   cd backend
-   python verify_backend.py
-   ```
-2. **Compile TypeScript & Check Extension Bundle:**
-   ```bash
-   cd extension
-   npm run build
-   ```
+### Request Body
+```json
+{
+  "title": "Attention Is All You Need",
+  "abstract": "We propose a new simple network architecture, the Transformer...",
+  "full_text": "...",
+  "doi": "10.48550/arXiv.1706.03762",
+  "arxiv_id": "1706.03762"
+}
+```
+
+### Response Body
+```json
+{
+  "status": "success",
+  "claims": [
+    {
+      "id": "claim_0",
+      "sentence": "The Transformer achieves 28.4 BLEU on the WMT 2014 English-to-German task.",
+      "verdict": "Verified",
+      "confidence": 0.98,
+      "evidence_papers": [
+        {
+          "title": "BLEU: a Method for Automatic Evaluation of Machine Translation",
+          "citation_url": "https://doi.org/10.3115/1073083.1073135"
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "coi_score": 0.15,
+    "reproducibility_factor": 0.85,
+    "statistical_power": 0.95
+  }
+}
+```
+</details>
+
+<details>
+<summary><b>2. POST /api/explain (Highlight Jargon Explanation)</b></summary>
+
+### Request Body
+```json
+{
+  "term": "Self-Attention Mechanism",
+  "context": "An attention mechanism relating different positions of a single sequence..."
+}
+```
+</details>
 
 ---
 
-## 🛡️ CORS & Permissions Policy Security Notes
-* **Clipboard API:** Standard MV3 extensions running in cross-origin frames cannot access `navigator.clipboard.writeText` due to security restrictions. Episteme resolves this by passing window messages (`copy_to_clipboard`) to the host DOM running the content script context, executing a safe delegation copy.
-* **CORS Policies:** Ensure your Hugging Face Space or backend server has `CORSMiddleware` configured to allow headers from extension frames:
-  ```python
-  app.add_middleware(
-      CORSMiddleware,
-      allow_origins=["*"],
-      allow_credentials=True,
-      allow_methods=["*"],
-      allow_headers=["*"],
-  )
-  ```
+## 📄 License
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.

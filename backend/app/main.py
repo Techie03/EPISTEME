@@ -1,9 +1,10 @@
 import os
 import hashlib
 import logging
-from fastapi import FastAPI, HTTPException, Body, Response
+from fastapi import FastAPI, HTTPException, Body, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+import time
 from pydantic import BaseModel
 from app.config import PORT, HOST
 from app.pipeline.graph import pipeline_app
@@ -177,6 +178,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Verify token for default cloud backend requests to prevent abuse
+SECRET_SALT = os.getenv("EPISTEME_SECRET_SALT", "")
+
+@app.middleware("http")
+async def verify_auth_token_middleware(request: Request, call_next):
+    # Exclude non-API routes and health check
+    path = request.url.path
+    if not path.startswith("/api/") or path == "/api/health":
+        return await call_next(request)
+        
+    # If the secret salt is set in the environment (e.g. on HF Spaces production),
+    # we enforce auth token validation. Otherwise (local dev/custom server), we bypass it.
+    if SECRET_SALT:
+        token = request.headers.get("X-Episteme-Auth-Token")
+        if not token:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized: Missing authentication token."})
+            
+        # Verify token against current, previous, and next minute (to allow small time drift)
+        now = int(time.time() // 60)
+        valid = False
+        for offset in [-1, 0, 1]:
+            expected = hashlib.sha256(f"{now + offset}:{SECRET_SALT}".encode()).hexdigest()
+            if token == expected:
+                valid = True
+                break
+                
+        if not valid:
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized: Invalid or expired authentication token."})
+            
+    return await call_next(request)
+
 def generate_paper_id(title: str, doi: str = None) -> str:
     """Helper to compute a stable unique ID for caching and storage"""
     if doi:
@@ -274,7 +306,8 @@ async def analyze_paper(
     title: str = Body(..., description="Title of the research paper"),
     raw_text: str = Body(..., description="Plain text content extracted from the paper"),
     doi: str = Body(None, description="Digital Object Identifier"),
-    arxiv_id: str = Body(None, description="arXiv unique identifier")
+    arxiv_id: str = Body(None, description="arXiv unique identifier"),
+    force_refresh: bool = Body(False, description="Bypass cache check and run pipeline fresh")
 ):
     """
     Analyzes a scientific paper. Check cache first. Run LangGraph pipeline on cache miss.
@@ -287,13 +320,25 @@ async def analyze_paper(
     paper_id = generate_paper_id(title, doi)
     
     # 1. Try Cache Lookup (Fastpath)
-    cached = get_cached_analysis(paper_id)
-    if cached:
-        logger.info(f"Returning cached analysis for paper_id: {paper_id}")
-        return cached
+    if not force_refresh:
+        cached = get_cached_analysis(paper_id)
+        if cached:
+            # Check cache completeness
+            has_peer_review = cached.get("peer_review") is not None
+            has_timeline = len(cached.get("evolution_timeline", [])) > 0
+            has_videos = len(cached.get("related_videos", [])) > 0
+            has_authors = len(cached.get("author_network", [])) > 0
+            
+            if has_peer_review and has_timeline and has_videos and has_authors:
+                logger.info(f"Returning complete cached analysis for paper_id: {paper_id}")
+                return cached
+            else:
+                logger.info(f"Cached analysis for {paper_id} is incomplete. Re-running analysis pipeline...")
+    else:
+        logger.info(f"Force refresh requested. Bypassing cache lookup for paper_id: {paper_id}")
 
     # 2. Cache Miss - Run LangGraph pipeline
-    logger.info(f"Cache miss for {paper_id}. Executing LangGraph verification pipeline...")
+    logger.info(f"Executing LangGraph verification pipeline for {paper_id}...")
     try:
         initial_state = {
             "doi": doi,
@@ -327,6 +372,8 @@ async def analyze_paper(
             "stats_anomalies": result.get("stats_anomalies", []),
             "concept_map_nodes": result.get("concept_map_nodes", []),
             "concept_map_links": result.get("concept_map_links", []),
+            "peer_review": result.get("peer_review"),
+            "evolution_timeline": result.get("evolution_timeline", []),
             "replication_repos": result.get("replication_repos", []),
             "complexity": result.get("complexity"),
             "related_videos": result.get("related_videos", []),
@@ -391,30 +438,47 @@ async def get_history(query: str = None, limit: int = 20):
         
     return history[:limit]
 
+@app.delete("/api/history")
+async def clear_history():
+    """
+    Clear all user history: deletes local cache, Supabase caches, and Qdrant vector memory.
+    """
+    logger.info("Received request to clear all research memory history.")
+    try:
+        # Clear vector store
+        from app.vector_store import clear_all_papers
+        await clear_all_papers()
+        
+        # Clear caching tier
+        from app.cache import clear_all_caches
+        clear_all_caches()
+        
+        return {"status": "success", "message": "All history and verification cache cleared successfully."}
+    except Exception as e:
+        logger.error(f"Error clearing history: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to clear history: {str(e)}")
+
 class CompareRequest(BaseModel):
-    paper_id_a: str
-    paper_id_b: str
+    title_a: str
+    claims_a: list
+    title_b: str
+    claims_b: list
 
 @app.post("/api/compare")
 async def compare_papers(payload: CompareRequest):
     """
-    Compare claims and methodologies of two historical papers.
+    Compare claims and methodologies of two papers passed in the payload.
     """
-    analysis_a = get_cached_analysis(payload.paper_id_a)
-    analysis_b = get_cached_analysis(payload.paper_id_b)
-    if not analysis_a or not analysis_b:
-        raise HTTPException(status_code=404, detail="One or both paper analyses not found in personal research memory cache.")
-    
-    claims_a = "\n".join([f"- {c.get('claim')}" for c in analysis_a.get("claims", [])])
-    claims_b = "\n".join([f"- {c.get('claim')}" for c in analysis_b.get("claims", [])])
+    claims_a = "\n".join([f"- {c.get('claim')}" for c in payload.claims_a])
+    claims_b = "\n".join([f"- {c.get('claim')}" for c in payload.claims_b])
     
     prompt = f"""You are a scientific verification contrast bot. Compare the core claims, methodologies, and findings of the two scientific papers below:
 
-Paper A: {analysis_a.get('title')}
+Paper A: {payload.title_a}
 Claims A:
 {claims_a}
 
-Paper B: {analysis_b.get('title')}
+Paper B: {payload.title_b}
 Claims B:
 {claims_b}
 

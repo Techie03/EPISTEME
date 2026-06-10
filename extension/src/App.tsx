@@ -130,8 +130,8 @@ export default function App() {
   const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
 
   // Settings & Configuration states
-  const [backendUrl, setBackendUrl] = useState<string>('http://127.0.0.1:8000');
-  const [settingsUrlInput, setSettingsUrlInput] = useState<string>('https://nishith374-episteme-backend.hf.space');
+  const [backendUrl, setBackendUrl] = useState<string>('https://nishith374-episteme-backend.hf.space');
+  const [settingsUrlInput, setSettingsUrlInput] = useState<string>('Default (Cloud)');
   const [backendStatus, setBackendStatus] = useState<'Checking...' | 'Online' | 'Offline'>('Checking...');
 
   // Chatbot states
@@ -472,10 +472,14 @@ export default function App() {
   // Ping backend health
   const checkHealth = async (url: string) => {
     setBackendStatus('Checking...');
+    let checkUrl = url;
+    if (!url || url.toLowerCase() === 'default (cloud)' || url.toLowerCase() === 'default') {
+      checkUrl = 'https://nishith374-episteme-backend.hf.space';
+    }
     try {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 3000);
-      const cleanUrl = url.trim().replace(/\/$/, "");
+      const cleanUrl = checkUrl.trim().replace(/\/$/, "");
       const res = await fetch(`${cleanUrl}/api/health`, {
         method: 'GET',
         signal: controller.signal
@@ -506,10 +510,22 @@ export default function App() {
     // Load config on mount
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
       chrome.storage.local.get('backendUrl', (stored: any) => {
-        const url = stored.backendUrl || 'http://127.0.0.1:8000';
+        const url = stored.backendUrl || 'https://nishith374-episteme-backend.hf.space';
         setBackendUrl(url);
-        setSettingsUrlInput(url);
+        if (url === 'https://nishith374-episteme-backend.hf.space') {
+          setSettingsUrlInput('Default (Cloud)');
+        } else {
+          setSettingsUrlInput(url);
+        }
       });
+    } else {
+      const url = localStorage.getItem('backendUrl') || 'https://nishith374-episteme-backend.hf.space';
+      setBackendUrl(url);
+      if (url === 'https://nishith374-episteme-backend.hf.space') {
+        setSettingsUrlInput('Default (Cloud)');
+      } else {
+        setSettingsUrlInput(url);
+      }
     }
 
     const handleWindowMessage = (event: MessageEvent) => {
@@ -519,66 +535,135 @@ export default function App() {
           console.log('[Episteme Sidebar] Received paper data:', msg.data);
           setPaperData(msg.data);
           
-          // Auto-check if we already have it in history or cache
-          if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-            chrome.storage.local.get('backendUrl', (stored: any) => {
-              const url = stored.backendUrl || 'http://127.0.0.1:8000';
-              checkCache(url, msg.data.title, msg.data.doi);
-            });
-          } else {
-            checkCache('http://127.0.0.1:8000', msg.data.title, msg.data.doi);
+            // Check local browser cache first
+            checkLocalCache(msg.data.title, msg.data.doi);
+          } else if (msg.action === 'text_selected') {
+            console.log('[Episteme Sidebar] Text selected:', msg.text);
+            setSelectedText(msg.text);
+            setJargonExplanation('');
           }
-        } else if (msg.action === 'text_selected') {
-          console.log('[Episteme Sidebar] Text selected:', msg.text);
-          setSelectedText(msg.text);
-          setJargonExplanation('');
+        }
+      };
+
+      window.addEventListener('message', handleWindowMessage);
+      
+      // Request paper data
+      window.parent.postMessage({
+        source: 'episteme-sidebar',
+        action: 'get_paper_data'
+      }, '*');
+
+      return () => {
+        window.removeEventListener('message', handleWindowMessage);
+      };
+    }, [backendUrl]);
+
+    const hashString = (str: string) => {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+      }
+      return hash;
+    };
+
+    const checkLocalCache = (title: string, doi?: string) => {
+      const paperId = doi 
+        ? `doi_${doi.trim().replace(/\//g, '_').replace(/\\/g, '_')}` 
+        : `title_${Math.abs(hashString(title)).toString(16)}`;
+
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get('episteme_paper_' + paperId, (stored: any) => {
+          const result = stored['episteme_paper_' + paperId];
+          if (result) {
+            console.log('[Episteme] Found cached verification locally:', result);
+            setAnalysisResult(result);
+          } else {
+            checkCache(backendUrl, title, doi);
+          }
+        });
+      } else {
+        const stored = localStorage.getItem('episteme_paper_' + paperId);
+        if (stored) {
+          console.log('[Episteme] Found cached verification locally:', stored);
+          setAnalysisResult(JSON.parse(stored));
+        } else {
+          checkCache(backendUrl, title, doi);
         }
       }
     };
 
-    window.addEventListener('message', handleWindowMessage);
-    
-    // Request paper data
-    window.parent.postMessage({
-      source: 'episteme-sidebar',
-      action: 'get_paper_data'
-    }, '*');
+    // Check backend cache first (fallback)
+    const checkCache = async (baseUrl: string, title: string, doi?: string) => {
+      let paperId = doi 
+        ? `doi_${doi.trim().replace(/\//g, '_').replace(/\\/g, '_')}` 
+        : `title_${Math.abs(hashString(title)).toString(16)}`;
 
-    return () => {
-      window.removeEventListener('message', handleWindowMessage);
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: 'get_paper_req',
+          payload: { paperId: paperId }
+        }, (response: any) => {
+          if (response && response.success) {
+            setAnalysisResult(response.data);
+            savePaperToLocalHistory(response.data);
+          }
+        });
+      } else {
+        try {
+          const cleanUrl = baseUrl.trim().replace(/\/$/, "");
+          const response = await fetch(`${cleanUrl}/api/paper/${paperId}`);
+          if (response.ok) {
+            const data = await response.json();
+            setAnalysisResult(data);
+            savePaperToLocalHistory(data);
+          }
+        } catch (e) {
+          console.log('Cache miss or backend offline. User needs to trigger analysis.');
+        }
+      }
     };
-  }, []);
 
-  // Check backend cache first
-  const checkCache = async (baseUrl: string, title: string, doi?: string) => {
-    // Generate stable unique cache ID
-    let paperId = '';
-    if (doi) {
-      paperId = `doi_${doi.trim().replace(/\//g, '_').replace(/\\/g, '_')}`;
-    } else {
-      // Basic client side hash function for mock/check
-      let hash = 0;
-      for (let i = 0; i < title.length; i++) {
-        hash = (hash << 5) - hash + title.charCodeAt(i);
-        hash |= 0;
-      }
-      paperId = `title_${Math.abs(hash).toString(16)}`;
-    }
+    const savePaperToLocalHistory = async (result: AnalysisResult) => {
+      if (!result) return;
+      const paperId = result.doi 
+        ? `doi_${result.doi.trim().replace(/\//g, '_').replace(/\\/g, '_')}` 
+        : `title_${Math.abs(hashString(result.title)).toString(16)}`;
 
-    try {
-      const cleanUrl = baseUrl.trim().replace(/\/$/, "");
-      const response = await fetch(`${cleanUrl}/api/paper/${paperId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysisResult(data);
+      const newHistoryItem = {
+        id: paperId,
+        title: result.title,
+        doi: result.doi,
+        arxiv_id: result.arxiv_id,
+        savedAt: new Date().toLocaleString()
+      };
+
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get('episteme_history', (stored: any) => {
+          const history = stored.episteme_history || [];
+          const filtered = history.filter((item: any) => item.id !== paperId);
+          const updatedHistory = [newHistoryItem, ...filtered];
+          
+          chrome.storage.local.set({
+            ['episteme_paper_' + paperId]: result,
+            'episteme_history': updatedHistory
+          }, () => {
+            setHistoryList(updatedHistory);
+          });
+        });
+      } else {
+        const history = JSON.parse(localStorage.getItem('episteme_history') || '[]');
+        const filtered = history.filter((item: any) => item.id !== paperId);
+        const updatedHistory = [newHistoryItem, ...filtered];
+        
+        localStorage.setItem('episteme_history', JSON.stringify(updatedHistory));
+        localStorage.setItem('episteme_paper_' + paperId, JSON.stringify(result));
+        setHistoryList(updatedHistory);
       }
-    } catch (e) {
-      console.log('Cache miss or backend offline. User needs to trigger analysis.');
-    }
-  };
+    };
 
   // Fetch analysis from FastAPI via Chrome runtime message relay (bypassing CSP)
-  const handleAnalyze = () => {
+  const handleAnalyze = (forceRefresh: boolean = false) => {
     if (!paperData) return;
     
     setLoading(true);
@@ -608,13 +693,15 @@ export default function App() {
           title: paperData.title,
           raw_text: paperData.raw_text,
           doi: paperData.doi,
-          arxiv_id: paperData.arxiv_id
+          arxiv_id: paperData.arxiv_id,
+          force_refresh: forceRefresh
         }
       }, (response: any) => {
         clearInterval(interval);
         setLoading(false);
         if (response && response.success) {
           setAnalysisResult(response.data);
+          savePaperToLocalHistory(response.data);
           setActiveTab('claims');
         } else {
           alert(`Analysis Failed: ${response ? response.error : 'Service Offline'}`);
@@ -630,7 +717,8 @@ export default function App() {
           title: paperData.title,
           raw_text: paperData.raw_text,
           doi: paperData.doi,
-          arxiv_id: paperData.arxiv_id
+          arxiv_id: paperData.arxiv_id,
+          force_refresh: forceRefresh
         })
       })
         .then(res => {
@@ -641,6 +729,7 @@ export default function App() {
           clearInterval(interval);
           setLoading(false);
           setAnalysisResult(data);
+          savePaperToLocalHistory(data);
           setActiveTab('claims');
         })
         .catch(err => {
@@ -651,20 +740,149 @@ export default function App() {
     }
   };
 
-  // Fetch History List
-  const fetchHistory = async (query?: string) => {
+  const handleDeleteHistory = async () => {
+    if (!window.confirm("Are you sure you want to clear all history and verification cache? This action cannot be undone.")) {
+      return;
+    }
+    
     try {
-      const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-      const url = query 
-        ? `${cleanUrl}/api/history?query=${encodeURIComponent(query)}`
-        : `${cleanUrl}/api/history`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        setHistoryList(data);
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get('episteme_history', (stored: any) => {
+          const history = stored.episteme_history || [];
+          const keysToRemove = history.map((item: any) => 'episteme_paper_' + item.id);
+          keysToRemove.push('episteme_history');
+          keysToRemove.push('likedPapers');
+          chrome.storage.local.remove(keysToRemove, () => {
+            setHistoryList([]);
+            setAnalysisResult(null);
+            setLikedPapersList([]);
+            setSelectedHistoryPapers([]);
+            alert("History cleared successfully from browser local storage!");
+          });
+        });
+      } else {
+        const history = JSON.parse(localStorage.getItem('episteme_history') || '[]');
+        history.forEach((item: any) => {
+          localStorage.removeItem('episteme_paper_' + item.id);
+        });
+        localStorage.removeItem('episteme_history');
+        localStorage.removeItem('likedPapers');
+        setHistoryList([]);
+        setAnalysisResult(null);
+        setLikedPapersList([]);
+        setSelectedHistoryPapers([]);
+        alert("History cleared successfully from browser local storage!");
       }
-    } catch (e) {
-      console.error('Failed to fetch history', e);
+      
+      // Inform backend to clean any transient caches if offline/online
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ type: 'clear_history_req' }, (response: any) => {
+          if (response && response.success) {
+            console.log("Backend history cleared successfully via service worker.");
+          } else {
+            console.warn("Failed to clear backend history via service worker:", response?.error);
+          }
+        });
+      } else {
+        const cleanUrl = backendUrl.trim().replace(/\/$/, "");
+        fetch(`${cleanUrl}/api/history`, { method: 'DELETE' }).catch(() => {});
+      }
+    } catch (e: any) {
+      alert(`Error clearing history: ${e.message}`);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedHistoryPapers.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete the ${selectedHistoryPapers.length} selected paper(s) from history and cache?`)) {
+      return;
+    }
+
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get('episteme_history', (stored: any) => {
+          const history = stored.episteme_history || [];
+          const updatedHistory = history.filter((item: any) => !selectedHistoryPapers.includes(item.id));
+          const keysToRemove = selectedHistoryPapers.map((id) => 'episteme_paper_' + id);
+          
+          chrome.storage.local.remove(keysToRemove, () => {
+            chrome.storage.local.set({ episteme_history: updatedHistory }, () => {
+              setHistoryList(updatedHistory);
+              setSelectedHistoryPapers([]);
+              
+              // If current verified paper was deleted, clear its analysisResult
+              const currentPaperId = analysisResult?.doi 
+                ? `doi_${analysisResult.doi.trim().replace(/\//g, '_').replace(/\\/g, '_')}` 
+                : (paperData ? `title_${Math.abs(hashString(paperData.title)).toString(16)}` : '');
+              if (selectedHistoryPapers.includes(currentPaperId)) {
+                setAnalysisResult(null);
+              }
+              alert("Selected paper(s) deleted successfully!");
+            });
+          });
+        });
+      } else {
+        const history = JSON.parse(localStorage.getItem('episteme_history') || '[]');
+        const updatedHistory = history.filter((item: any) => !selectedHistoryPapers.includes(item.id));
+        selectedHistoryPapers.forEach((id) => {
+          localStorage.removeItem('episteme_paper_' + id);
+        });
+        localStorage.setItem('episteme_history', JSON.stringify(updatedHistory));
+        setHistoryList(updatedHistory);
+        setSelectedHistoryPapers([]);
+        
+        const currentPaperId = analysisResult?.doi 
+          ? `doi_${analysisResult.doi.trim().replace(/\//g, '_').replace(/\\/g, '_')}` 
+          : (paperData ? `title_${Math.abs(hashString(paperData.title)).toString(16)}` : '');
+        if (selectedHistoryPapers.includes(currentPaperId)) {
+          setAnalysisResult(null);
+        }
+        alert("Selected paper(s) deleted successfully!");
+      }
+    } catch (e: any) {
+      alert(`Error deleting selected papers: ${e.message}`);
+    }
+  };
+
+  const handleReloadExtension = () => {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.reload) {
+      if (window.confirm("This will reload the extension and refresh the current page to start a fresh verification session. Continue?")) {
+        window.parent.postMessage({
+          source: 'episteme-sidebar',
+          action: 'reload_page'
+        }, '*');
+        
+        setTimeout(() => {
+          chrome.runtime.reload();
+        }, 150);
+      }
+    } else {
+      if (window.confirm("Reload this page for a fresh verification session?")) {
+        window.location.reload();
+      }
+    }
+  };
+
+  // Fetch History List from local storage
+  const fetchHistory = async (query?: string) => {
+    const filterHistory = (items: any[]) => {
+      if (!query) return items;
+      const q = query.toLowerCase();
+      return items.filter((item: any) => 
+        item.title.toLowerCase().includes(q) || 
+        (item.doi && item.doi.toLowerCase().includes(q)) || 
+        (item.arxiv_id && item.arxiv_id.toLowerCase().includes(q))
+      );
+    };
+
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get('episteme_history', (stored: any) => {
+        const history = stored.episteme_history || [];
+        setHistoryList(filterHistory(history));
+      });
+    } else {
+      const history = JSON.parse(localStorage.getItem('episteme_history') || '[]');
+      setHistoryList(filterHistory(history));
     }
   };
 
@@ -677,16 +895,30 @@ export default function App() {
   const loadHistoricalPaper = async (paperId: string) => {
     setLoading(true);
     try {
-      const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/api/paper/${paperId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAnalysisResult(data);
-        setActiveTab('claims');
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.get('episteme_paper_' + paperId, (stored: any) => {
+          const result = stored['episteme_paper_' + paperId];
+          if (result) {
+            setAnalysisResult(result);
+            setActiveTab('claims');
+          } else {
+            alert("Error: Paper analysis not found in local storage.");
+          }
+          setLoading(false);
+        });
+      } else {
+        const stored = localStorage.getItem('episteme_paper_' + paperId);
+        if (stored) {
+          setAnalysisResult(JSON.parse(stored));
+          setActiveTab('claims');
+        } else {
+          alert("Error: Paper analysis not found in local storage.");
+        }
+        setLoading(false);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-    } finally {
+      alert("Failed to load historical paper: " + e.message);
       setLoading(false);
     }
   };
@@ -779,26 +1011,39 @@ export default function App() {
     setExplainingLoading(true);
     setJargonExplanation('');
 
-    // Always call the API directly – background.js may point to a stale remote
-    // deployment that is missing /api/explain. The React app already holds the
-    // correct backendUrl (set by the user in Settings, defaulting to localhost).
-    const cleanUrl = backendUrl.trim().replace(/\/$/, '');
-    try {
-      const res = await fetch(`${cleanUrl}/api/explain`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phrase: selectedText })
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      // Route through service worker to bypass parent page CORS / CSP restrictions
+      chrome.runtime.sendMessage({
+        type: 'explain_req',
+        payload: { phrase: selectedText }
+      }, (response: any) => {
+        setExplainingLoading(false);
+        if (response && response.success) {
+          setJargonExplanation(response.data.explanation);
+        } else {
+          setJargonExplanation(`Error: ${response ? response.error : 'Failed to explain term'}`);
+        }
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(`API error (${res.status}): ${errText}`);
+    } else {
+      // Fallback for direct browser debugging (non-extension environment)
+      const cleanUrl = backendUrl.trim().replace(/\/$/, '');
+      try {
+        const res = await fetch(`${cleanUrl}/api/explain`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phrase: selectedText })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`API error (${res.status}): ${errText}`);
+        }
+        const data = await res.json();
+        setJargonExplanation(data.explanation);
+      } catch (err: any) {
+        setJargonExplanation(`Error: ${err.message}`);
+      } finally {
+        setExplainingLoading(false);
       }
-      const data = await res.json();
-      setJargonExplanation(data.explanation);
-    } catch (err: any) {
-      setJargonExplanation(`Error: ${err.message}`);
-    } finally {
-      setExplainingLoading(false);
     }
   };
 
@@ -913,45 +1158,71 @@ export default function App() {
     setCompareResult(null);
     setShowCompareModal(true);
 
-    const payload = {
-      paper_id_a: selectedHistoryPapers[0],
-      paper_id_b: selectedHistoryPapers[1]
-    };
-
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-      chrome.runtime.sendMessage({
-        type: 'compare_req',
-        payload: payload
-      }, (response: any) => {
-        setCompareLoading(false);
-        if (response && response.success) {
-          setCompareResult(response.data);
-        } else {
-          setCompareResult({
-            error: response ? response.error : 'Connection to compare service failed.'
+    const getPaperInfo = (paperId: string): Promise<any> => {
+      return new Promise((resolve) => {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          chrome.storage.local.get('episteme_paper_' + paperId, (stored: any) => {
+            resolve(stored['episteme_paper_' + paperId]);
           });
+        } else {
+          const stored = localStorage.getItem('episteme_paper_' + paperId);
+          resolve(stored ? JSON.parse(stored) : null);
         }
       });
-    } else {
-      const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-      fetch(`${cleanUrl}/api/compare`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-        .then(res => {
-          if (!res.ok) throw new Error('API server returned error');
-          return res.json();
-        })
-        .then(data => {
+    };
+
+    Promise.all([
+      getPaperInfo(selectedHistoryPapers[0]),
+      getPaperInfo(selectedHistoryPapers[1])
+    ]).then(([paperA, paperB]) => {
+      if (!paperA || !paperB) {
+        setCompareLoading(false);
+        setCompareResult({ error: "One or both selected papers could not be found in local history." });
+        return;
+      }
+
+      const payload = {
+        title_a: paperA.title,
+        claims_a: paperA.claims || [],
+        title_b: paperB.title,
+        claims_b: paperB.claims || []
+      };
+
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({
+          type: 'compare_req',
+          payload: payload
+        }, (response: any) => {
           setCompareLoading(false);
-          setCompareResult(data);
-        })
-        .catch(err => {
-          setCompareLoading(false);
-          setCompareResult({ error: err.message });
+          if (response && response.success) {
+            setCompareResult(response.data);
+          } else {
+            setCompareResult({
+              error: response ? response.error : 'Connection to compare service failed.'
+            });
+          }
         });
-    }
+      } else {
+        const cleanUrl = backendUrl.trim().replace(/\/$/, "");
+        fetch(`${cleanUrl}/api/compare`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(res => {
+            if (!res.ok) throw new Error('API server returned error');
+            return res.json();
+          })
+          .then(data => {
+            setCompareLoading(false);
+            setCompareResult(data);
+          })
+          .catch(err => {
+            setCompareLoading(false);
+            setCompareResult({ error: err.message });
+          });
+      }
+    });
   };
 
   const handleDesignProtocol = async (hypName: string, hypDesc: string) => {
@@ -966,23 +1237,37 @@ export default function App() {
       paper_title: analysisResult?.title || paperData?.title || "Unknown Paper"
     };
 
-    try {
-      const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/api/experiment/plan`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({
+        type: 'design_protocol_req',
+        payload: payload
+      }, (response: any) => {
+        setProtocolLoading(false);
+        if (response && response.success) {
+          setProtocolContent(response.data.protocol_markdown);
+        } else {
+          setProtocolContent("Failed to generate protocol. Server returned an error.");
+        }
       });
-      if (res.ok) {
-        const data = await res.json();
-        setProtocolContent(data.protocol_markdown);
-      } else {
-        setProtocolContent("Failed to generate protocol. Server returned an error.");
+    } else {
+      try {
+        const cleanUrl = backendUrl.trim().replace(/\/$/, "");
+        const res = await fetch(`${cleanUrl}/api/experiment/plan`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setProtocolContent(data.protocol_markdown);
+        } else {
+          setProtocolContent("Failed to generate protocol. Server returned an error.");
+        }
+      } catch (e: any) {
+        setProtocolContent(`Error generating protocol: ${e.message}`);
+      } finally {
+        setProtocolLoading(false);
       }
-    } catch (e: any) {
-      setProtocolContent(`Error generating protocol: ${e.message}`);
-    } finally {
-      setProtocolLoading(false);
     }
   };
 
@@ -990,10 +1275,6 @@ export default function App() {
     setSelectedHistoryPapers(prev => {
       if (prev.includes(paperId)) {
         return prev.filter(id => id !== paperId);
-      }
-      if (prev.length >= 2) {
-        // Limit to 2, replace first selected with new one
-        return [prev[1], paperId];
       }
       return [...prev, paperId];
     });
@@ -1220,6 +1501,28 @@ export default function App() {
           >
             {theme === 'dark' ? '🌙' : '☀️'}
           </button>
+          {/* Reload Extension Button */}
+          <button 
+            className="header-action-btn reload-btn"
+            onClick={handleReloadExtension}
+            title="Reload Extension & Tab"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              fontSize: '16px',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'inherit'
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2) rotate(45deg)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1.0)'}
+          >
+            🔄
+          </button>
           {/* GitHub Codebase Button */}
           <a 
             href="https://github.com/Techie03/episteme" 
@@ -1412,7 +1715,7 @@ export default function App() {
                   Run paper verification to simulate a strict journal peer-review report mapping strengths, weaknesses, and revision suggestions.
                 </p>
               </div>
-              <button className="action-btn" onClick={handleAnalyze}>
+              <button className="action-btn" onClick={() => handleAnalyze()}>
                 Begin Paper Verification
               </button>
             </div>
@@ -1492,7 +1795,7 @@ export default function App() {
                   Verify this paper to generate an interactive 5-slide visual carousel of core insights.
                 </p>
               </div>
-              <button className="action-btn" onClick={handleAnalyze}>
+              <button className="action-btn" onClick={() => handleAnalyze()}>
                 Begin Paper Verification
               </button>
             </div>
@@ -1735,12 +2038,22 @@ export default function App() {
               <button 
                 className="action-btn" 
                 onClick={() => {
-                  const cleanUrl = settingsUrlInput.trim().replace(/\/$/, "");
-                  setBackendUrl(cleanUrl);
+                  const rawInput = settingsUrlInput.trim();
+                  let targetUrl = rawInput;
+                  if (!rawInput || rawInput.toLowerCase() === 'default (cloud)' || rawInput.toLowerCase() === 'default') {
+                    targetUrl = 'https://nishith374-episteme-backend.hf.space';
+                    setSettingsUrlInput('Default (Cloud)');
+                  } else {
+                    targetUrl = rawInput.replace(/\/$/, "");
+                    setSettingsUrlInput(targetUrl);
+                  }
+                  setBackendUrl(targetUrl);
                   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-                    chrome.storage.local.set({ backendUrl: cleanUrl }, () => {
-                      console.log('Saved custom backend url:', cleanUrl);
+                    chrome.storage.local.set({ backendUrl: targetUrl }, () => {
+                      console.log('Saved custom backend url:', targetUrl);
                     });
+                  } else {
+                    localStorage.setItem('backendUrl', targetUrl);
                   }
                   alert('Settings saved successfully!');
                 }}
@@ -1749,9 +2062,67 @@ export default function App() {
                 Save Configuration
               </button>
             </div>
+
+            <h3 className="integrity-block-title" style={{ marginTop: '16px' }}>Developer Controls</h3>
+            <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                If you made edits to the extension or want to reload the extension state completely:
+              </div>
+              <button 
+                className="action-btn"
+                onClick={handleReloadExtension}
+                style={{
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  borderColor: 'rgba(245, 158, 11, 0.3)',
+                  color: '#f59e0b',
+                  fontSize: '12px',
+                  padding: '8px 12px'
+                }}
+              >
+                🔄 Reload Extension & Page
+              </button>
+
+              <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', margin: '4px 0' }}></div>
+
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Bypass caches and run a fresh verification on the current paper:
+              </div>
+              <button 
+                className="action-btn"
+                disabled={!paperData}
+                onClick={() => handleAnalyze(true)}
+                style={{
+                  background: 'rgba(99, 102, 241, 0.12)',
+                  borderColor: 'rgba(99, 102, 241, 0.3)',
+                  color: '#a5b4fc',
+                  fontSize: '12px',
+                  padding: '8px 12px'
+                }}
+              >
+                ⚡ Run Fresh Verification
+              </button>
+            </div>
             
             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', padding: '0 8px', lineHeight: 1.4 }}>
               Tip: When deployed to Hugging Face Spaces or Render, paste your Space/App HTTPS URL here (e.g. <code>https://user-space.hf.space</code>).
+            </div>
+
+            <div className="glass-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px', borderLeft: '3px solid var(--color-primary)', background: 'rgba(99, 102, 241, 0.02)' }}>
+              <h4 style={{ margin: 0, fontSize: '12px', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🔒 Privacy & Memory
+              </h4>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                The Memory and History features are personal to your extension instance and are not intended to be shared publicly.
+              </p>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                If you are using the default pre-configured backend, your saved papers, notes, and memory items should be treated as your own workspace. Other users should not rely on the History tab as a public repository or expect to see everyone else's activity.
+              </p>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                For complete privacy and control, users are encouraged to deploy their own backend and configure their own API credentials. However, for convenience, a pre-configured backend is provided for users who do not wish to perform any setup.
+              </p>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, fontStyle: 'italic' }}>
+                Please do not store sensitive, confidential, or personally identifiable information unless you are using a backend that you control and trust.
+              </p>
             </div>
           </div>
         ) : activeTab === 'replication' ? (
@@ -1953,27 +2324,79 @@ export default function App() {
               <button className="toggle-sub-btn" onClick={() => setActiveTab('videos')}>Videos</button>
               <button className="toggle-sub-btn" style={{ paddingLeft: '8px', paddingRight: '8px' }} onClick={() => setActiveTab('settings')}>API Settings</button>
             </div>
-            <div className="history-search-bar">
+            <div className="history-search-bar" style={{ display: 'flex', gap: '8px' }}>
               <input 
                 type="text" 
                 placeholder="Search personal memory (e.g. immunology)..." 
                 className="history-input"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                style={{ flex: 1 }}
               />
+              <button
+                className="toggle-sub-btn"
+                style={{ color: 'var(--color-danger)', borderColor: 'rgba(239,68,68,0.3)', padding: '6px 12px', fontSize: '11px', whiteSpace: 'nowrap' }}
+                onClick={handleDeleteHistory}
+                title="Clear all history and caches"
+              >
+                🗑️ Clear History
+              </button>
             </div>
+
+            {historyList.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={historyList.length > 0 && historyList.every(item => selectedHistoryPapers.includes(item.id))}
+                    ref={input => {
+                      if (input) {
+                        const allSelected = historyList.every(item => selectedHistoryPapers.includes(item.id));
+                        const someSelected = historyList.some(item => selectedHistoryPapers.includes(item.id));
+                        input.indeterminate = someSelected && !allSelected;
+                      }
+                    }}
+                    onChange={() => {
+                      const allSelected = historyList.every(item => selectedHistoryPapers.includes(item.id));
+                      if (allSelected) {
+                        // Remove currently visible historyList items from selection
+                        const visibleIds = historyList.map(item => item.id);
+                        setSelectedHistoryPapers(prev => prev.filter(id => !visibleIds.includes(id)));
+                      } else {
+                        // Add visible historyList items to selection
+                        const visibleIds = historyList.map(item => item.id);
+                        setSelectedHistoryPapers(prev => {
+                          const union = new Set([...prev, ...visibleIds]);
+                          return Array.from(union);
+                        });
+                      }
+                    }}
+                  />
+                  <span>Select All visible ({historyList.length})</span>
+                </label>
+              </div>
+            )}
 
             {selectedHistoryPapers.length > 0 && (
               <div className="glass-card compare-action-banner" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
-                <span style={{ fontSize: '12px' }}>Selected: <strong>{selectedHistoryPapers.length} / 2</strong> papers</span>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <span style={{ fontSize: '12px' }}>Selected: <strong>{selectedHistoryPapers.length}</strong> {selectedHistoryPapers.length === 1 ? 'paper' : 'papers'}</span>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                   <button 
                     className="action-btn"
                     disabled={selectedHistoryPapers.length !== 2}
                     onClick={handleCompareSelected}
                     style={{ padding: '6px 12px', fontSize: '11px' }}
+                    title={selectedHistoryPapers.length === 2 ? "Compare selected papers" : "Compare requires exactly 2 papers"}
                   >
                     Compare Selected
+                  </button>
+                  <button 
+                    className="action-btn"
+                    onClick={handleDeleteSelected}
+                    style={{ padding: '6px 12px', fontSize: '11px', background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.3)', color: '#fca5a5' }}
+                    title="Delete selected papers from history"
+                  >
+                    🗑️ Delete Selected
                   </button>
                   <button 
                     className="claim-expand-trigger"
@@ -2098,7 +2521,7 @@ export default function App() {
                 Run LangGraph agent analysis to verify claims, check retractions, and build semantic hypothesis paths.
               </p>
             </div>
-            <button className="action-btn" onClick={handleAnalyze}>
+            <button className="action-btn" onClick={() => handleAnalyze()}>
               Begin Paper Verification
             </button>
           </div>

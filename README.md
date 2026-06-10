@@ -277,5 +277,17 @@ python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 ---
 
+## 🔒 Privacy & Memory
+
+The Memory and History features are personal to your extension instance and are not intended to be shared publicly.
+
+If you are using the default pre-configured backend, your saved papers, notes, and memory items should be treated as your own workspace. Other users should not rely on the History tab as a public repository or expect to see everyone else's activity.
+
+For complete privacy and control, users are encouraged to deploy their own backend and configure their own API credentials. However, for convenience, a pre-configured backend is provided for users who do not wish to perform any setup.
+
+Please do not store sensitive, confidential, or personally identifiable information unless you are using a backend that you control and trust.
+
+---
+
 ## 📄 License
 MIT License.

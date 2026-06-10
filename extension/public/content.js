@@ -169,6 +169,8 @@ window.addEventListener("message", (event) => {
       }
     } else if (event.data.action === "close_sidebar") {
       toggleSidebar();
+    } else if (event.data.action === "reload_page") {
+      window.location.reload();
     } else if (event.data.action === "copy_to_clipboard") {
       const textToCopy = event.data.text;
       try {

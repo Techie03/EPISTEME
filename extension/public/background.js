@@ -6,9 +6,65 @@ function logger(msg) {
   console.log(`[Episteme Background] ${msg}`);
 }
 
-// Default to local backend – the HF Space may be running an older version
-// that is missing newer routes (/api/explain, /api/compare, etc.)
-const DEFAULT_BACKEND = "http://127.0.0.1:8000";
+// Default cloud backend (Base64 encoded to deter simple scraper scripts and exploiters)
+const DEFAULT_BACKEND = atob("aHR0cHM6Ly9uaXNoaXRoMzc0LWVwaXN0ZW1lLWJhY2tlbmQuaGYuc3BhY2U=");
+
+// dynamic token generator using Web Crypto API
+async function generateAuthToken() {
+  const SECRET_SALT = "EpistemeSecureSalt2026";
+  const now = Math.floor(Date.now() / 60000); // changes every minute
+  const message = `${now}:${SECRET_SALT}`;
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+// generic backend request relay
+async function callBackend(apiPath, method, payload, sendResponse) {
+  try {
+    const stored = await new Promise((resolve) => {
+      chrome.storage.local.get("backendUrl", resolve);
+    });
+    
+    const baseUrl = stored.backendUrl || DEFAULT_BACKEND;
+    const backendUrl = `${baseUrl.replace(/\/$/, "")}${apiPath}`;
+    
+    const headers = {};
+    if (method === "POST") {
+      headers["Content-Type"] = "application/json";
+    }
+    
+    // Inject secure auth token if calling the pre-configured default backend
+    if (baseUrl === DEFAULT_BACKEND) {
+      const token = await generateAuthToken().catch(() => null);
+      if (token) {
+        headers["X-Episteme-Auth-Token"] = token;
+      }
+    }
+    
+    const fetchOptions = {
+      method: method,
+      headers: headers
+    };
+    if (payload) {
+      fetchOptions.body = JSON.stringify(payload);
+    }
+    
+    logger(`Relaying ${method} request to backend: ${backendUrl}`);
+    const response = await fetch(backendUrl, fetchOptions);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`API error (${response.status}): ${text}`);
+    }
+    const data = await response.json();
+    sendResponse({ success: true, data: data });
+  } catch (err) {
+    logger(`Error calling backend ${apiPath}: ${err.message}`);
+    sendResponse({ success: false, error: err.message });
+  }
+}
 
 // 1. Listen for clicks on the extension toolbar icon
 chrome.action.onClicked.addListener((tab) => {
@@ -28,127 +84,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   logger(`Received message of type: ${request.type}`);
 
   if (request.type === "analyze_paper_req") {
-    chrome.storage.local.get("backendUrl", (stored) => {
-      const baseUrl = stored.backendUrl || DEFAULT_BACKEND;
-      const backendUrl = `${baseUrl.replace(/\/$/, "")}/api/analyze`;
-      
-      logger(`Relaying analysis request to backend: ${backendUrl}`);
-      
-      fetch(backendUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(request.payload)
-      })
-        .then(response => {
-          if (!response.ok) {
-            return response.text().then(text => {
-              throw new Error(`API error (${response.status}): ${text}`);
-            });
-          }
-          return response.json();
-        })
-        .then(data => {
-          logger("Analysis successful. Sending response back.");
-          sendResponse({ success: true, data: data });
-        })
-        .catch(err => {
-          logger(`Error during analysis: ${err.message}`);
-          sendResponse({ success: false, error: err.message });
-        });
-    });
+    callBackend("/api/analyze", "POST", request.payload, sendResponse);
     return true; // Keep message channel open for async response
   }
 
   if (request.type === "chat_req") {
-    chrome.storage.local.get("backendUrl", (stored) => {
-      const baseUrl = stored.backendUrl || DEFAULT_BACKEND;
-      const backendUrl = `${baseUrl.replace(/\/$/, "")}/api/chat`;
-      
-      fetch(backendUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(request.payload)
-      })
-        .then(response => {
-          if (!response.ok) {
-            return response.text().then(text => {
-              throw new Error(`API error (${response.status}): ${text}`);
-            });
-          }
-          return response.json();
-        })
-        .then(data => sendResponse({ success: true, data: data }))
-        .catch(err => sendResponse({ success: false, error: err.message }));
-    });
+    callBackend("/api/chat", "POST", request.payload, sendResponse);
     return true;
   }
 
   if (request.type === "explain_req") {
-    chrome.storage.local.get("backendUrl", (stored) => {
-      const baseUrl = stored.backendUrl || DEFAULT_BACKEND;
-      const backendUrl = `${baseUrl.replace(/\/$/, "")}/api/explain`;
-      
-      fetch(backendUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(request.payload)
-      })
-        .then(response => {
-          if (!response.ok) {
-            return response.text().then(text => {
-              throw new Error(`API error (${response.status}): ${text}`);
-            });
-          }
-          return response.json();
-        })
-        .then(data => sendResponse({ success: true, data: data }))
-        .catch(err => sendResponse({ success: false, error: err.message }));
-    });
+    callBackend("/api/explain", "POST", request.payload, sendResponse);
     return true;
   }
 
   if (request.type === "get_history_req") {
-    chrome.storage.local.get("backendUrl", (stored) => {
-      const baseUrl = stored.backendUrl || DEFAULT_BACKEND;
-      const backendUrl = `${baseUrl.replace(/\/$/, "")}/api/history`;
-      
-      fetch(backendUrl)
-        .then(response => response.json())
-        .then(data => sendResponse({ success: true, data: data }))
-        .catch(err => sendResponse({ success: false, error: err.message }));
-    });
+    callBackend("/api/history", "GET", null, sendResponse);
     return true;
   }
 
   if (request.type === "compare_req") {
-    chrome.storage.local.get("backendUrl", (stored) => {
-      const baseUrl = stored.backendUrl || DEFAULT_BACKEND;
-      const backendUrl = `${baseUrl.replace(/\/$/, "")}/api/compare`;
-      
-      fetch(backendUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(request.payload)
-      })
-        .then(response => {
-          if (!response.ok) {
-            return response.text().then(text => {
-              throw new Error(`API error (${response.status}): ${text}`);
-            });
-          }
-          return response.json();
-        })
-        .then(data => sendResponse({ success: true, data: data }))
-        .catch(err => sendResponse({ success: false, error: err.message }));
-    });
+    callBackend("/api/compare", "POST", request.payload, sendResponse);
+    return true;
+  }
+
+  if (request.type === "clear_history_req") {
+    callBackend("/api/history", "DELETE", null, sendResponse);
+    return true;
+  }
+
+  if (request.type === "get_paper_req") {
+    callBackend(`/api/paper/${request.payload.paperId}`, "GET", null, sendResponse);
+    return true;
+  }
+
+  if (request.type === "design_protocol_req") {
+    callBackend("/api/experiment/plan", "POST", request.payload, sendResponse);
     return true;
   }
 });

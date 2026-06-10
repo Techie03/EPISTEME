@@ -87,3 +87,27 @@ async def search_similar(vector: List[float], limit: int = 5) -> List[Dict[str, 
         
     scored_results.sort(key=lambda x: x["score"], reverse=True)
     return scored_results[:limit]
+
+async def clear_all_papers():
+    """
+    Clears all papers from local in-memory database and Qdrant Cloud.
+    """
+    global _local_vector_db
+    _local_vector_db.clear()
+    logger.info("Cleared local in-memory vector database.")
+    
+    if qdrant_client:
+        try:
+            from qdrant_client.http import models as qmodels
+            collection_name = "papers"
+            if qdrant_client.collection_exists(collection_name):
+                qdrant_client.delete_collection(collection_name)
+            
+            # Recreate with 1024 vector size (e5-v5 is 1024-dim)
+            qdrant_client.create_collection(
+                collection_name=collection_name,
+                vectors_config=qmodels.VectorParams(size=1024, distance=qmodels.Distance.COSINE)
+            )
+            logger.info("Re-created Qdrant collection 'papers' to clear all history.")
+        except Exception as e:
+            logger.error(f"Failed to clear Qdrant collection: {e}")

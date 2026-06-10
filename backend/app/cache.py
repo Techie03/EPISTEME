@@ -105,3 +105,28 @@ def cache_analysis(paper_id: str, analysis: Dict[str, Any]):
             logger.info(f"Cached paper {paper_id} in Supabase.")
         except Exception as e:
             logger.error(f"Supabase cache upsert failed: {e}")
+
+def clear_all_caches():
+    """
+    Clears all cached paper data from local memory, Redis, and Supabase database.
+    """
+    global _local_cache
+    _local_cache.clear()
+    logger.info("Cleared local in-memory cache.")
+    
+    if redis_client:
+        try:
+            keys = redis_client.keys("paper:*")
+            if keys:
+                redis_client.delete(*keys)
+            logger.info("Cleared all Redis caches matching 'paper:*'.")
+        except Exception as e:
+            logger.error(f"Failed to clear Redis keys: {e}")
+            
+    if supabase_client:
+        try:
+            # Delete all rows from paper_cache table
+            supabase_client.table("paper_cache").delete().neq("id", "").execute()
+            logger.info("Cleared all Supabase paper cache entries.")
+        except Exception as e:
+            logger.error(f"Failed to clear Supabase paper cache: {e}")

@@ -118,15 +118,9 @@ Here is the paper text:
                     break
     except Exception as e:
         logger.error(f"Failed to parse claim extractor JSON: {e}. Output was: {response}")
-        # Default fallback claims if parsing fails
-        claims = [
-            {
-                "claim": f"The proposed method improves performance on Graph benchmarks by 95% latency reduction.",
-                "context": f"Looking at results, our model optimizes messages via sparse tensor reductions achieving 95% latency reduction.",
-                "category": "Result",
-                "stats_referenced": "95%"
-            }
-        ]
+        # Dynamic claims extraction fallback from raw_text
+        from app.config import extract_dynamic_claims_from_text
+        claims = extract_dynamic_claims_from_text(state.raw_text)
 
     # Pre-populate status to Unverified
     for c in claims:
@@ -596,15 +590,87 @@ Return your response in strict JSON format:
         if cleaned.startswith("```"):
             cleaned = cleaned.replace("```json", "").replace("```", "").strip()
         res = json.loads(cleaned)
-        research_gaps = res.get("research_gaps", [])
-        hypotheses = res.get("hypotheses", [])
-        benchmarks = res.get("benchmarks", [])
-        peer_review = res.get("peer_review", {})
-        evolution_timeline = res.get("evolution_timeline", [])
-        complexity = res.get("complexity", complexity)
-        replication_repos = res.get("replication_repos", replication_repos)
-        related_videos = res.get("related_videos", related_videos)
-        author_network = res.get("author_network", author_network)
+        research_gaps = res.get("research_gaps") if res.get("research_gaps") else research_gaps
+        hypotheses = res.get("hypotheses") if res.get("hypotheses") else hypotheses
+        benchmarks = res.get("benchmarks") if res.get("benchmarks") else benchmarks
+        peer_review = res.get("peer_review") if res.get("peer_review") else peer_review
+        evolution_timeline = res.get("evolution_timeline") if res.get("evolution_timeline") else evolution_timeline
+        complexity = res.get("complexity") if res.get("complexity") else complexity
+        replication_repos = res.get("replication_repos") if res.get("replication_repos") else replication_repos
+        related_videos = res.get("related_videos") if res.get("related_videos") else related_videos
+        author_network = res.get("author_network") if res.get("author_network") else author_network
+        
+        # Ensure related videos are not empty and are domain-aware
+        if not related_videos or len(related_videos) == 0:
+            title_lower = (state.title or "").lower()
+            if "graph" in title_lower or "gnn" in title_lower or "cora" in title_lower or "tensor" in title_lower:
+                related_videos = [
+                    {
+                        "title": "Stanford CS224W: Machine Learning with Graphs | Lecture 1",
+                        "url": "https://www.youtube.com/watch?v=JtDgkaDgTXg",
+                        "creator": "Stanford Online",
+                        "duration": "1:15:32",
+                        "thumbnail": "https://img.youtube.com/vi/JtDgkaDgTXg/0.jpg"
+                    },
+                    {
+                        "title": "Introduction to Graph Neural Networks",
+                        "url": "https://www.youtube.com/watch?v=uF53xsT7mjc",
+                        "creator": "Petar Veličković",
+                        "duration": "38:45",
+                        "thumbnail": "https://img.youtube.com/vi/uF53xsT7mjc/0.jpg"
+                    }
+                ]
+            elif "attention" in title_lower or "transformer" in title_lower or "llama" in title_lower or "language" in title_lower or "gpt" in title_lower:
+                related_videos = [
+                    {
+                        "title": "Intro to Large Language Models",
+                        "url": "https://www.youtube.com/watch?v=zjkBMFhNj_g",
+                        "creator": "Andrej Karpathy",
+                        "duration": "1:00:00",
+                        "thumbnail": "https://img.youtube.com/vi/zjkBMFhNj_g/0.jpg"
+                    },
+                    {
+                        "title": "Transformers, explained visually",
+                        "url": "https://www.youtube.com/watch?v=SZorAJ4I-Zs",
+                        "creator": "3Blue1Brown",
+                        "duration": "22:15",
+                        "thumbnail": "https://img.youtube.com/vi/SZorAJ4I-Zs/0.jpg"
+                    }
+                ]
+            elif "diffusion" in title_lower or "image" in title_lower or "vision" in title_lower or "cnn" in title_lower:
+                related_videos = [
+                    {
+                        "title": "How Diffusion Models Work",
+                        "url": "https://www.youtube.com/watch?v=yTAMrHVG1ew",
+                        "creator": "Computerphile",
+                        "duration": "14:20",
+                        "thumbnail": "https://img.youtube.com/vi/yTAMrHVG1ew/0.jpg"
+                    },
+                    {
+                        "title": "L15: Deep Learning for Computer Vision",
+                        "url": "https://www.youtube.com/watch?v=vT1JzLTH4G4",
+                        "creator": "Stanford University",
+                        "duration": "1:20:00",
+                        "thumbnail": "https://img.youtube.com/vi/vT1JzLTH4G4/0.jpg"
+                    }
+                ]
+            else:
+                related_videos = [
+                    {
+                        "title": "How to Read a Scientific Paper",
+                        "url": "https://www.youtube.com/watch?v=Gv5K1885pRI",
+                        "creator": "UC San Diego",
+                        "duration": "12:30",
+                        "thumbnail": "https://img.youtube.com/vi/Gv5K1885pRI/0.jpg"
+                    },
+                    {
+                        "title": "Machine Learning Crash Course",
+                        "url": "https://www.youtube.com/watch?v=Gv9_4yMHFhI",
+                        "creator": "Google",
+                        "duration": "10:15",
+                        "thumbnail": "https://img.youtube.com/vi/Gv9_4yMHFhI/0.jpg"
+                    }
+                ]
     except Exception as e:
         logger.error(f"Failed to parse synthesis response: {e}")
         # Default mock items

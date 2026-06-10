@@ -502,7 +502,7 @@ export default function App() {
     if (msgLower.includes('who is developer') || msgLower.includes('who is nishith') || msgLower.includes('who created episteme') || msgLower.includes('who made episteme') || msgLower.includes('who is the developer') || msgLower.includes('who developed this')) {
       setTimeout(() => {
         setChatLoading(false);
-        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Nishith is the developer of Episteme. He created it.' }]);
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Nishith is the developer of Episteme.' }]);
       }, 500);
       return;
     }

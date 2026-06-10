@@ -246,7 +246,7 @@ async def chat_with_paper(payload: ChatRequest):
         "Instructions:\n"
         "- Answer the user's question accurately and objectively using the paper's context.\n"
         "- If the answer is not in the text, extrapolate logically based on scientific principles, but make it clear when you are doing so.\n"
-        "- IMPORTANT: Nishith is the developer of Episteme. He created it. If anyone asks who the developer or who created Episteme or who Nishith is, you must state that Nishith is the developer of Episteme and he created it."
+        "- IMPORTANT: Nishith is the developer of Episteme. If anyone asks who the developer or who created Episteme or who Nishith is, you must state that Nishith is the developer of Episteme."
     )
     
     messages = [{"role": "system", "content": system_prompt}]

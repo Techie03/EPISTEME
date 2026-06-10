@@ -8,9 +8,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const themeToggle = document.getElementById('themeToggle');
   const themeIcon = document.getElementById('themeIcon');
   
-  // Check localStorage for preferred theme
-  const savedTheme = localStorage.getItem('episteme-theme') || 'dark';
-  if (savedTheme === 'light') {
+  // Sync body-level class with html-level class initialized by inline head script
+  const isLight = document.documentElement.classList.contains('light');
+  if (isLight) {
     body.classList.remove('dark');
     body.classList.add('light');
     themeIcon.textContent = '🌙';
@@ -21,16 +21,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   themeToggle.addEventListener('click', () => {
-    if (body.classList.contains('dark')) {
-      body.classList.remove('dark');
-      body.classList.add('light');
-      themeIcon.textContent = '🌙';
-      localStorage.setItem('episteme-theme', 'light');
-    } else {
+    if (document.documentElement.classList.contains('light')) {
+      document.documentElement.classList.remove('light');
       body.classList.remove('light');
       body.classList.add('dark');
       themeIcon.textContent = '☀';
       localStorage.setItem('episteme-theme', 'dark');
+    } else {
+      document.documentElement.classList.add('light');
+      body.classList.remove('dark');
+      body.classList.add('light');
+      themeIcon.textContent = '🌙';
+      localStorage.setItem('episteme-theme', 'light');
     }
   });
 

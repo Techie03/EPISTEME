@@ -45,12 +45,14 @@
 /* ── Reset ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+body, .nav, .feature-card, .pipeline-step, .stack-card, .download-card, .btn, .theme-toggle, .code-block, .hero-terminal {
+  transition: background 0.4s ease, background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
 body {
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
-  transition: background 0.4s, color 0.4s;
   min-height: 100vh;
 }
 

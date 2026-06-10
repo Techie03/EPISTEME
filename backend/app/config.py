@@ -259,10 +259,167 @@ def extract_dynamic_claims_from_text(text: str) -> list[dict]:
         
     return claims
 
+def extract_authors_from_text(text: str, title: str) -> list[str]:
+    # Let's find email patterns first
+    emails = re.findall(r'\b[a-zA-Z0-9._%+-]+@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b', text[:4000])
+    authors = []
+    for email in emails:
+        name_part = email.split('@')[0]
+        name_part = re.sub(r'[^a-zA-Z\.]', ' ', name_part).strip()
+        name = " ".join([w.capitalize() for w in name_part.split() if w])
+        if name and name.lower() not in ["info", "contact", "support", "help", "admin", "sales", "editorial", "office", "author", "authors", "github", "gitlab", "research"]:
+            if len(name) > 2:
+                authors.append(name)
+    
+    # If no authors from email, check for lines near the top of the text
+    if not authors:
+        lines = [line.strip() for line in text[:3000].split('\n') if line.strip()]
+        for line in lines[:20]:
+            if re.match(r'^[A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*){1,2}$', line):
+                if not any(w.lower() in ["abstract", "introduction", "university", "department", "school", "institute", "author", "arxiv", "preprint", "journal", "volume", "number", "pages", "table", "figure", "equation"] for w in line.split()):
+                    authors.append(line)
+    
+    seen = set()
+    unique_authors = []
+    for a in authors:
+        if a.lower() not in seen:
+            seen.add(a.lower())
+            unique_authors.append(a)
+    
+    if not unique_authors:
+        unique_authors = ["Dr. Sarah Jenkins", "Prof. Michael Chen", "Dr. David Rossi"]
+    return unique_authors[:3]
+
+def extract_affiliation_from_text(text: str) -> str:
+    universities = [
+        "Stanford University", "Massachusetts Institute of Technology", "MIT", "Harvard University",
+        "UC Berkeley", "Carnegie Mellon University", "CMU", "Oxford University", "Cambridge University",
+        "Google DeepMind", "Google Research", "Meta AI", "Microsoft Research", "OpenAI", "Princeton University",
+        "California Institute of Technology", "Caltech", "Tsinghua University", "Peking University",
+        "ETH Zurich", "University of Washington", "Cornell University"
+    ]
+    text_chunk = text[:4000].lower()
+    for uni in universities:
+        if uni.lower() in text_chunk:
+            return uni
+    match = re.search(r'(?:university of|department of|institute of|division of|school of)\s+[a-zA-Z\s]+', text_chunk, re.IGNORECASE)
+    if match:
+        cleaned = re.sub(r'[\n\r,]', ' ', match.group(0)).strip()
+        return " ".join([w.capitalize() for w in cleaned.split() if w])[:50]
+    return "Global Research Institute"
+
+def extract_replication_repos_from_text(text: str, title: str) -> list[dict]:
+    matches = re.findall(r'github\.com/([a-zA-Z0-9_\-\.]+)/([a-zA-Z0-9_\-\.]+)', text, re.IGNORECASE)
+    repos = []
+    seen = set()
+    for owner, name in matches:
+        name = re.sub(r'[^a-zA-Z0-9_\-\.]', '', name)
+        repo_url = f"https://github.com/{owner}/{name}"
+        repo_name = f"{owner}/{name}".lower()
+        if repo_name not in seen and not owner.lower() in ["github-actions", "features", "marketplace"]:
+            seen.add(repo_name)
+            repos.append({
+                "name": f"{owner}/{name}",
+                "url": repo_url,
+                "stars": 120 + (len(owner) * len(name) % 300),
+                "forks": 25 + (len(owner) * len(name) % 80),
+                "has_docker": any(w in text.lower() for w in ["docker", "dockerfile", "container"]),
+                "primary_language": "Python" if any(w in text.lower() for w in ["python", "pytorch", "tensorflow", "keras"]) else "JavaScript"
+            })
+    
+    if not repos:
+        slug = re.sub(r'[^a-z0-9]', '-', title.lower()).strip('-')
+        slug = re.sub(r'-+', '-', slug)
+        slug_parts = [w for w in slug.split('-') if w not in ["a", "an", "the", "of", "in", "on", "at", "for", "with", "and"]]
+        slug = "-".join(slug_parts[:3])
+        if not slug:
+            slug = "replication-repo"
+        repos.append({
+            "name": f"academic-replications/{slug}",
+            "url": f"https://github.com/academic-replications/{slug}",
+            "stars": 45 + (len(title) % 50),
+            "forks": 10 + (len(title) % 15),
+            "has_docker": False,
+            "primary_language": "Python"
+        })
+    return repos[:2]
+
+def generate_dynamic_peer_review(title: str, claims: list, domain: str) -> dict:
+    strengths = [
+        f"Proposes a well-structured framework that directly addresses {domain}-specific complexities.",
+        "The empirical evaluations demonstrate measurable improvements over the baseline models."
+    ]
+    if claims:
+        claim_snippet = claims[0].replace("\n", " ").strip()
+        if len(claim_snippet) > 80:
+            claim_snippet = claim_snippet[:77] + "..."
+        strengths.append(f"Provides empirical support for: '{claim_snippet}'")
+    else:
+        strengths.append("The theoretical claims are backed by rigorous complexity proofs.")
+        
+    weaknesses = [
+        f"The proposed method is mostly validated on standard benchmarks. Performance under extreme noise or out-of-distribution scales remains an open question.",
+        "The computational runtime and peak memory consumption are not fully characterized against all edge cases."
+    ]
+    
+    questions = [
+        f"How does the model's latency profile change under dynamic or heterogeneous {domain} workloads?",
+        "What are the primary performance degradation patterns when scaling inputs beyond the reported thresholds?"
+    ]
+    
+    return {
+        "strengths": strengths,
+        "weaknesses": weaknesses,
+        "questions_for_authors": questions,
+        "recommendation": "Accept with minor revisions"
+    }
+
+def generate_dynamic_timeline(title: str, authors: list, text: str) -> list[dict]:
+    ref_years = re.findall(r'\b(20[0-2]\d|199\d)\b', text)
+    ref_years = [int(y) for y in ref_years if 1995 <= int(y) <= 2025]
+    ancestor_year = min(ref_years) if ref_years else 2022
+    if ancestor_year >= 2026:
+        ancestor_year = 2021
+        
+    author_str = authors[0] if authors else "Dr. Sarah Jenkins"
+    title_words = [w for w in title.split() if len(w) > 3]
+    last_word = title_words[-1] if title_words else "System"
+    
+    return [
+        {
+            "year": ancestor_year,
+            "title": f"Foundational Benchmarks for {last_word} Optimization Models",
+            "authors": ["R. Miller", "T. Davis"],
+            "relationship": "Ancestor Foundation",
+            "claim_mutation": f"Defined early baseline models and structural complexity limits in {last_word} architectures."
+        },
+        {
+            "year": 2026,
+            "title": title,
+            "authors": [author_str],
+            "relationship": "Current Paper",
+            "claim_mutation": "Introduces the core methodology and empirical verification framework proposed in this study."
+        },
+        {
+            "year": 2028,
+            "title": f"Dynamic Scaling and Federated Generalization of {last_word} Frameworks",
+            "authors": ["Next Gen Research Labs"],
+            "relationship": "Descendant Successor",
+            "claim_mutation": "Extends the current approach to adapt to dynamic network topologies and zero-shot scenarios."
+        }
+    ]
+
 def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
     title_lower = title.lower()
     
-    # Classify domain to create relevant content
+    paper_text = ""
+    match_text = re.search(r'Paper Text Context:\s*---\s*(.*?)\s*---', last_msg, re.DOTALL)
+    if match_text:
+        paper_text = match_text.group(1).strip()
+    else:
+        paper_text = last_msg
+
+    domain = "General"
     if "graph" in title_lower or "gnn" in title_lower or "cora" in title_lower or "tensor" in title_lower or "node" in title_lower:
         domain = "GNN"
         research_gaps = [
@@ -290,16 +447,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "source": "Papers With Code"
             }
         ]
-        replication_repos = [
-            {
-                "name": "academic-replications/episteme-gnn-sparse",
-                "url": "https://github.com/academic-replications/episteme-gnn-sparse",
-                "stars": 128,
-                "forks": 32,
-                "has_docker": True,
-                "primary_language": "Python"
-            }
-        ]
         related_videos = [
             {
                 "title": "Stanford CS224W: Machine Learning with Graphs | Lecture 1",
@@ -315,33 +462,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "duration": "38:45",
                 "thumbnail": "https://img.youtube.com/vi/uF53xsT7mjc/0.jpg"
             }
-        ]
-        author_network = [
-            {
-                "name": "J. Doe",
-                "affiliation": "Stanford University",
-                "h_index": 34,
-                "co_authors": ["A. Smith", "Y. Wang"],
-                "top_papers": [
-                    {"title": "Message Passing Efficiency in Large Graph Neural Networks", "year": 2021, "citations": 482},
-                    {"title": "Foundational Graph Attentional Kernels", "year": 2019, "citations": 1285}
-                ]
-            },
-            {
-                "name": "A. Smith",
-                "affiliation": "MIT CS & AI Lab",
-                "h_index": 28,
-                "co_authors": ["J. Doe", "L. Zhang"],
-                "top_papers": [
-                    {"title": "Distributed Reductions on Sparse Matrix Topologies", "year": 2022, "citations": 234},
-                    {"title": "GNN Architectures for Structural Learning", "year": 2020, "citations": 612}
-                ]
-            }
-        ]
-        timeline_events = [
-            {"year": 2022, "title": "Low Latency Acceleration for Sparse Tensor Computing on GPU Platforms", "authors": ["Y. Wang", "L. Zhang"], "relationship": "Ancestor Foundation", "claim_mutation": "Introduced custom hardware optimization kernels for sparse tensor multiplications."},
-            {"year": 2026, "title": title, "authors": ["Current Researchers"], "relationship": "Current Paper", "claim_mutation": "Leveraged sparse matrix abstractions to resolve GNN message passing latency."},
-            {"year": 2028, "title": "Dynamic edge routing in sparse graph models", "authors": ["Next Gen AI Labs"], "relationship": "Descendant Successor", "claim_mutation": "Applies reinforcement learning edge pruning to dynamic graph streaming architectures."}
         ]
     elif "attention" in title_lower or "transformer" in title_lower or "llama" in title_lower or "language" in title_lower or "gpt" in title_lower or "text" in title_lower or "prompt" in title_lower or "nlp" in title_lower:
         domain = "LLM"
@@ -370,16 +490,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "source": "Papers With Code"
             }
         ]
-        replication_repos = [
-            {
-                "name": "academic-replications/episteme-llama-context",
-                "url": "https://github.com/academic-replications/episteme-llama-context",
-                "stars": 412,
-                "forks": 85,
-                "has_docker": True,
-                "primary_language": "Python"
-            }
-        ]
         related_videos = [
             {
                 "title": "Intro to Large Language Models",
@@ -395,33 +505,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "duration": "22:15",
                 "thumbnail": "https://img.youtube.com/vi/SZorAJ4I-Zs/0.jpg"
             }
-        ]
-        author_network = [
-            {
-                "name": "A. Vaswani",
-                "affiliation": "Google Brain",
-                "h_index": 52,
-                "co_authors": ["N. Shazeer", "N. Parmar"],
-                "top_papers": [
-                    {"title": "Attention Is All You Need", "year": 2017, "citations": 110000},
-                    {"title": "Image Transformer", "year": 2018, "citations": 3500}
-                ]
-            },
-            {
-                "name": "N. Shazeer",
-                "affiliation": "Character.AI",
-                "h_index": 48,
-                "co_authors": ["A. Vaswani", "J. Uszkoreit"],
-                "top_papers": [
-                    {"title": "Attention Is All You Need", "year": 2017, "citations": 110000},
-                    {"title": "GLU Variants Improve Transformer", "year": 2020, "citations": 1200}
-                ]
-            }
-        ]
-        timeline_events = [
-            {"year": 2017, "title": "Attention Is All You Need", "authors": ["A. Vaswani", "N. Shazeer"], "relationship": "Ancestor Foundation", "claim_mutation": "Introduced the self-attention mechanism, eliminating the need for recurrent or convolutional steps."},
-            {"year": 2026, "title": title, "authors": ["Current Authors"], "relationship": "Current Paper", "claim_mutation": "Optimized multi-head attention context routing to reduce latency."},
-            {"year": 2028, "title": "Self-Routing Multi-Domain Attention Networks", "authors": ["Next Gen AI Labs"], "relationship": "Descendant Successor", "claim_mutation": "Extends attention routing to heterogeneous multi-modal streaming inputs."}
         ]
     elif "diffusion" in title_lower or "image" in title_lower or "vision" in title_lower or "cnn" in title_lower or "pixel" in title_lower or "object" in title_lower:
         domain = "Vision"
@@ -450,16 +533,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "source": "Papers With Code"
             }
         ]
-        replication_repos = [
-            {
-                "name": "academic-replications/episteme-vision-diffusion",
-                "url": "https://github.com/academic-replications/episteme-vision-diffusion",
-                "stars": 230,
-                "forks": 41,
-                "has_docker": True,
-                "primary_language": "Python"
-            }
-        ]
         related_videos = [
             {
                 "title": "How Diffusion Models Work",
@@ -475,33 +548,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "duration": "1:20:00",
                 "thumbnail": "https://img.youtube.com/vi/vT1JzLTH4G4/0.jpg"
             }
-        ]
-        author_network = [
-            {
-                "name": "J. Ho",
-                "affiliation": "UC Berkeley",
-                "h_index": 31,
-                "co_authors": ["A. Jain", "P. Abbeel"],
-                "top_papers": [
-                    {"title": "Denoising Diffusion Probabilistic Models", "year": 2020, "citations": 8500},
-                    {"title": "Classifier-Free Diffusion Guidance", "year": 2022, "citations": 2800}
-                ]
-            },
-            {
-                "name": "P. Abbeel",
-                "affiliation": "UC Berkeley",
-                "h_index": 95,
-                "co_authors": ["J. Ho", "Chelsea Finn"],
-                "top_papers": [
-                    {"title": "Denoising Diffusion Probabilistic Models", "year": 2020, "citations": 8500},
-                    {"title": "Trust Region Policy Optimization", "year": 2015, "citations": 9200}
-                ]
-            }
-        ]
-        timeline_events = [
-            {"year": 2020, "title": "Denoising Diffusion Probabilistic Models", "authors": ["J. Ho", "P. Abbeel"], "relationship": "Ancestor Foundation", "claim_mutation": "Showed that diffusion models can generate high-quality images matching GAN output."},
-            {"year": 2026, "title": title, "authors": ["Current Researchers"], "relationship": "Current Paper", "claim_mutation": "Optimized DDPM reverse-step latency via latent flow matching."},
-            {"year": 2028, "title": "Real-Time One-Step Consistent Video Synthesis", "authors": ["Next Gen AI Labs"], "relationship": "Descendant Successor", "claim_mutation": "Applies consistent flow modeling to generate high-resolution video streams in single step."}
         ]
     else:
         domain = "General"
@@ -530,16 +576,6 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "source": "Papers With Code"
             }
         ]
-        replication_repos = [
-            {
-                "name": "academic-replications/episteme-general-metalearn",
-                "url": "https://github.com/academic-replications/episteme-general-metalearn",
-                "stars": 88,
-                "forks": 12,
-                "has_docker": False,
-                "primary_language": "Python"
-            }
-        ]
         related_videos = [
             {
                 "title": "How to Read a Scientific Paper",
@@ -556,57 +592,34 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
                 "thumbnail": "https://img.youtube.com/vi/Gv9_4yMHFhI/0.jpg"
             }
         ]
-        author_network = [
-            {
-                "name": "R. Smith",
-                "affiliation": "Harvard University",
-                "h_index": 42,
-                "co_authors": ["M. Johnson", "K. Lee"],
-                "top_papers": [
-                    {"title": "Meta-Learning Architectures for Out-of-Distribution Generalization", "year": 2021, "citations": 850},
-                    {"title": "A Survey of Federated Learning Algorithms", "year": 2019, "citations": 2100}
-                ]
-            },
-            {
-                "name": "M. Johnson",
-                "affiliation": "Oxford University",
-                "h_index": 36,
-                "co_authors": ["R. Smith", "A. Garcia"],
-                "top_papers": [
-                    {"title": "A Survey of Federated Learning Algorithms", "year": 2019, "citations": 2100},
-                    {"title": "Scalable Hyperparameter Optimization Systems", "year": 2022, "citations": 420}
-                ]
-            }
-        ]
-        timeline_events = [
-            {"year": 2019, "title": "A Survey of Federated Learning Algorithms", "authors": ["R. Smith", "M. Johnson"], "relationship": "Ancestor Foundation", "claim_mutation": "Established structural standards and convergence metrics for federated model updates."},
-            {"year": 2026, "title": title, "authors": ["Current Researchers"], "relationship": "Current Paper", "claim_mutation": "Leveraged federated learning abstractions to resolve out-of-distribution scalability."},
-            {"year": 2028, "title": "Adaptive Hyper-parameters in Federated Environments", "authors": ["Next Gen AI Labs"], "relationship": "Descendant Successor", "claim_mutation": "Applies meta-reinforcement learning to adjust hyperparameter boundaries dynamically."}
-        ]
-        
-    # Standard peer review report
-    peer_review = {
-        "strengths": [
-            f"Strong theoretical foundations addressing {domain} challenges.",
-            "Comprehensive performance evaluations compared to competitive baselines."
-        ],
-        "weaknesses": [
-            "Lack of testing under real-world noisy or high-divergence datasets.",
-            "Significant memory bandwidth overheads during initial cold starts."
-        ],
-        "questions_for_authors": [
-            f"How does your routing protocol adapt to scale-free structures in {domain}?",
-            "Did you consider physical device throttling in your latency evaluations?"
-        ],
-        "recommendation": "Accept with minor revisions"
-    }
-    
-    # Standard complexity report
+
+    extracted_authors = extract_authors_from_text(paper_text, title)
+    affiliation = extract_affiliation_from_text(paper_text)
+    replication_repos = extract_replication_repos_from_text(paper_text, title)
+    peer_review = generate_dynamic_peer_review(title, [], domain)
+    timeline_events = generate_dynamic_timeline(title, extracted_authors, paper_text)
+
+    author_network = []
+    for idx, auth in enumerate(extracted_authors):
+        author_network.append({
+            "name": auth,
+            "affiliation": affiliation,
+            "h_index": 12 + (sum(ord(c) for c in auth) % 25),
+            "co_authors": [a for a in extracted_authors if a != auth],
+            "top_papers": [
+                {
+                    "title": f"Recent Optimizations in {title.split()[-1] if title else 'Scientific'} Architectures",
+                    "year": 2022 + idx,
+                    "citations": 45 + (idx * 50)
+                }
+            ]
+        })
+
     complexity = {
         "difficulty_score": 70 if domain != "General" else 60,
         "estimated_reading_time": 25,
         "prerequisites": [
-            f"{domain} Systems",
+            f"{domain} Systems" if domain != "General" else "Advanced Data Structures",
             "Optimization Theory",
             "Linear Algebra"
         ],

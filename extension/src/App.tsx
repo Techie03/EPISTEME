@@ -113,6 +113,77 @@ interface AnalysisResult {
   author_network?: AuthorProfile[];
 }
 
+const renderFormattedMessage = (content: string) => {
+  if (!content) return null;
+  
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentList: React.ReactNode[] = [];
+  let keyCounter = 0;
+
+  const parseInlineMarkdown = (text: string): React.ReactNode[] => {
+    const boldParts = text.split(/\*\*([^*]+)\*\*/g);
+    return boldParts.map((part, bIdx) => {
+      if (bIdx % 2 !== 0) {
+        return <strong key={`b-${bIdx}`}>{parseItalics(part)}</strong>;
+      }
+      return parseItalics(part);
+    });
+  };
+
+  const parseItalics = (text: string): React.ReactNode => {
+    const italicParts = text.split(/\*([^*]+)\*/g);
+    if (italicParts.length === 1) return text;
+    return (
+      <>
+        {italicParts.map((part, iIdx) => {
+          if (iIdx % 2 !== 0) {
+            return <em key={`i-${iIdx}`}>{part}</em>;
+          }
+          return part;
+        })}
+      </>
+    );
+  };
+
+  const flushList = () => {
+    if (currentList.length > 0) {
+      elements.push(
+        <ul key={`ul-${keyCounter++}`} style={{ margin: '8px 0', paddingLeft: '20px', listStyleType: 'disc' }}>
+          {currentList}
+        </ul>
+      );
+      currentList = [];
+    }
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) {
+      flushList();
+      continue;
+    }
+    const isBullet = line.startsWith('- ') || line.startsWith('* ') || line.startsWith('• ');
+    if (isBullet) {
+      const cleanLine = line.substring(2);
+      currentList.push(
+        <li key={`li-${keyCounter++}`} style={{ marginBottom: '4px', lineHeight: '1.4' }}>
+          {parseInlineMarkdown(cleanLine)}
+        </li>
+      );
+    } else {
+      flushList();
+      elements.push(
+        <p key={`p-${keyCounter++}`} style={{ margin: '0 0 10px 0', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+          {parseInlineMarkdown(lines[i])}
+        </p>
+      );
+    }
+  }
+  flushList();
+  return <div style={{ display: 'flex', flexDirection: 'column' }}>{elements}</div>;
+};
+
 export default function App() {
   const [paperData, setPaperData] = useState<any>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
@@ -1964,7 +2035,7 @@ export default function App() {
                 <div className="chat-messages-log">
                   {chatMessages.map((msg, idx) => (
                     <div key={idx} className={`chat-message-bubble ${msg.role}`}>
-                      <div className="message-content">{msg.content}</div>
+                      <div className="message-content">{renderFormattedMessage(msg.content)}</div>
                     </div>
                   ))}
                   {chatLoading && (

@@ -429,6 +429,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #e2e8f0;
 }
 .t-prompt { color: var(--cyan); font-weight: 700; }
 .light .t-prompt { color: #6366f1; }

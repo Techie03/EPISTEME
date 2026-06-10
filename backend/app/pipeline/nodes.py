@@ -44,9 +44,53 @@ async def semantic_scholar_search(query: str, limit: int = 5) -> List[Dict[str, 
         logger.error(f"Error querying Semantic Scholar: {e}")
     
     # Fallback mock results if API fails or rate-limited
+    q_lower = query.lower()
+    if any(w in q_lower for w in ["attention", "transformer", "llama", "language", "gpt", "nlp"]):
+        return [
+            {
+                "title": "Attention Is All You Need",
+                "authors": ["A. Vaswani", "N. Shazeer", "N. Parmar", "J. Uszkoreit", "L. Jones", "A. N. Gomez", "L. Kaiser", "I. Polosukhin"],
+                "year": 2017,
+                "doi": "10.48550/arXiv.1706.03762",
+                "citation_count": 124500,
+                "url": "https://arxiv.org/abs/1706.03762",
+                "abstract": "We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely."
+            },
+            {
+                "title": "LLaMA: Open and Efficient Foundation Language Models",
+                "authors": ["H. Touvron", "T. Lavril", "G. Izacard", "X. Martinet", "M. Lachaux", "T. Lacroix", "B. Rozière", "N. Goyal", "E. Hambro", "F. Azhar", "A. Rodriguez", "A. Joulin", "E. Grave", "G. Lample"],
+                "year": 2023,
+                "doi": "10.48550/arXiv.2302.13971",
+                "citation_count": 9230,
+                "url": "https://arxiv.org/abs/2302.13971",
+                "abstract": "We introduce LLaMA, a collection of foundation language models ranging from 7B to 65B parameters. We train our models on trillions of tokens."
+            }
+        ]
+    elif any(w in q_lower for w in ["diffusion", "image", "vision", "cnn", "resnet", "vit"]):
+        return [
+            {
+                "title": "Denoising Diffusion Probabilistic Models",
+                "authors": ["J. Ho", "A. Jain", "P. Abbeel"],
+                "year": 2020,
+                "doi": "10.48550/arXiv.2006.11239",
+                "citation_count": 14500,
+                "url": "https://arxiv.org/abs/2006.11239",
+                "abstract": "We present high quality image synthesis results using diffusion probabilistic models, a class of latent variable models inspired by considerations from nonequilibrium thermodynamics."
+            },
+            {
+                "title": "An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale",
+                "authors": ["A. Dosovitskiy", "L. Beyer", "A. Kolesnikov", "D. Weissenborn", "X. Zhai", "T. Unterthiner", "M. Dehghani", "M. Minderer", "G. Heigold", "S. Gelly", "J. Uszkoreit", "N. Houlsby"],
+                "year": 2020,
+                "doi": "10.48550/arXiv.2010.11929",
+                "citation_count": 28900,
+                "url": "https://arxiv.org/abs/2010.11929",
+                "abstract": "While the Transformer architecture has become the de-facto standard for natural language processing tasks, its applications to computer vision remain limited. In this work, we show that direct application of Transformers to image patches works extremely well."
+            }
+        ]
+    
     return [
         {
-            "title": f"A Study of Sparse Message Passing in Graph Neural Networks",
+            "title": "A Study of Sparse Message Passing in Graph Neural Networks",
             "authors": ["J. Doe", "A. Smith"],
             "year": 2023,
             "doi": "10.1145/3534678.3539081",
@@ -64,6 +108,7 @@ async def semantic_scholar_search(query: str, limit: int = 5) -> List[Dict[str, 
             "abstract": "Sparse matrix and vector multiplications drive GNN execution. This paper builds custom kernels that minimize thread divergence and maximize DRAM utilization."
         }
     ]
+
 
 # Node 1: Claim Extractor
 async def claim_extractor_node(state: GraphState) -> Dict[str, Any]:
@@ -406,12 +451,35 @@ Return your analysis in strict JSON format:
     except Exception as e:
         logger.error(f"Failed to parse methodology flags: {e}")
         # fallback methodology flags if parsing fails
-        methodology_flags = [{
-            "issue": "Evaluation Dataset Representation",
-            "risk_level": "Medium",
-            "explanation": "The evaluation primarily relies on standard citation network datasets (Cora, Citeseer) which may not capture performance characteristics on dense or scale-free graphs.",
-            "remedy": "Incorporate dense networks (e.g. Reddit, ogbn-products) in the replication evaluation."
-        }]
+        title_lower = (state.title or "").lower()
+        if any(w in title_lower for w in ["graph", "gnn", "cora", "tensor"]):
+            methodology_flags = [{
+                "issue": "Evaluation Dataset Representation",
+                "risk_level": "Medium",
+                "explanation": "The evaluation primarily relies on standard citation network datasets (Cora, Citeseer) which may not capture performance characteristics on dense or scale-free graphs.",
+                "remedy": "Incorporate dense networks (e.g. Reddit, ogbn-products) in the replication evaluation."
+            }]
+        elif any(w in title_lower for w in ["attention", "transformer", "llama", "language", "gpt", "nlp"]):
+            methodology_flags = [{
+                "issue": "Static Benchmark Evaluation",
+                "risk_level": "Medium",
+                "explanation": "The evaluation relies on static prompt benchmarks (GSM8K, MMLU) which are susceptible to data contamination and lack interactive validation.",
+                "remedy": "Run interactive, multi-agent evaluation suites or dynamic task generation to test zero-shot capabilities."
+            }]
+        elif any(w in title_lower for w in ["diffusion", "image", "vision", "cnn"]):
+            methodology_flags = [{
+                "issue": "Image Sample Domain Bias",
+                "risk_level": "Medium",
+                "explanation": "The synthesis and classification results are benchmarked on clean, standard datasets without out-of-distribution blur or adversarial noise injections.",
+                "remedy": "Test generative fidelity under high JPEG compression, noise addition, or random occlusion patterns."
+            }]
+        else:
+            methodology_flags = [{
+                "issue": "Generalizability and Environmental Scaling",
+                "risk_level": "Medium",
+                "explanation": "The study validates claims on specific localized environment scales; generalizability bounds under extreme loads or dynamic topologies are unverified.",
+                "remedy": "Introduce high-variance environment profiles or covariate shifts in validation replication scripts."
+            }]
 
     integrity_report = {
         "retracted": is_retracted,

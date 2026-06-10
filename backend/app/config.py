@@ -37,7 +37,7 @@ UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "")
 UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN", "")
 
 # Shared httpx client
-http_client = httpx.AsyncClient(timeout=60.0)
+http_client = httpx.AsyncClient(timeout=15.0)
 
 async def call_nvidia_nim(model: str, messages: list, response_format: dict = None, temperature: float = 0.2) -> str:
     """

@@ -1,0 +1,78 @@
+/* Episteme Injected UI Styles */
+
+/* Launcher Floating Action Button */
+#episteme-launcher {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483640; /* Maximum z-index to overlay everything */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(15, 17, 26, 0.85);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+  color: #f3f4f6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+#episteme-launcher:hover {
+  transform: translateY(-4px);
+  background: rgba(22, 26, 41, 0.95);
+  border-color: rgba(99, 102, 241, 0.5); /* Glowing indigo border */
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+#episteme-launcher .episteme-logo {
+  font-size: 18px;
+  animation: pulse-micro 2s infinite ease-in-out;
+}
+
+#episteme-launcher.launcher-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(20px) scale(0.9);
+}
+
+@keyframes pulse-micro {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); text-shadow: 0 0 8px rgba(99, 102, 241, 0.6); }
+  100% { transform: scale(1); }
+}
+
+/* Sidebar Iframe Container */
+#episteme-sidebar-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 420px;
+  height: 100vh;
+  z-index: 2147483645;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  background: transparent;
+}
+
+#episteme-sidebar-container.episteme-open {
+  transform: translateX(0);
+}
+
+#episteme-sidebar-container.episteme-closed {
+  transform: translateX(440px); /* Move offscreen + offset shadow */
+}
+
+#episteme-sidebar-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color-scheme: dark;
+}

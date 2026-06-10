@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818CF8" />
+      <stop offset="100%" stop-color="#6366F1" />
+    </linearGradient>
+    <radialGradient id="radialGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#6366F1" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#090B11" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="microscopeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#E5E7EB" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background glow circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#radialGlow)" />
+  <circle cx="64" cy="64" r="48" fill="#0F1423" stroke="#312E81" stroke-width="2" />
+
+  <!-- Outer Ring Accent -->
+  <circle cx="64" cy="64" r="44" fill="none" stroke="url(#glowGrad)" stroke-width="1.5" stroke-dasharray="8 4" />
+
+  <!-- Microscope Icon Design -->
+  <!-- Base -->
+  <path d="M40 96 H88" stroke="url(#microscopeGrad)" stroke-width="6" stroke-linecap="round" />
+  <path d="M64 96 V84" stroke="url(#microscopeGrad)" stroke-width="6" stroke-linecap="round" />
+  
+  <!-- Arm -->
+  <path d="M64 84 C76 84 82 74 82 62 C82 50 78 40 68 40" fill="none" stroke="url(#microscopeGrad)" stroke-width="5" stroke-linecap="round" />
+  
+  <!-- Stage -->
+  <path d="M48 74 H72" stroke="url(#glowGrad)" stroke-width="4" stroke-linecap="round" />
+  
+  <!-- Body Tube / Objective -->
+  <path d="M52 32 L60 56" stroke="url(#microscopeGrad)" stroke-width="8" stroke-linecap="round" />
+  <!-- Focus knob -->
+  <circle cx="76" cy="62" r="4" fill="#6366F1" />
+  
+  <!-- Light Path Beam -->
+  <polygon points="56,58 64,74 48,74" fill="url(#glowGrad)" opacity="0.3" />
+  
+  <!-- Sparkles / Scientific Dots -->
+  <circle cx="42" cy="40" r="3" fill="#10B981" />
+  <circle cx="86" cy="36" r="2.5" fill="#06B6D4" />
+  <circle cx="88" cy="80" r="3.5" fill="#F59E0B" />
+</svg>

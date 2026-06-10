@@ -1,0 +1,206 @@
+Implementation Plan
+
+Episteme 🔬
+The Universal Research Intelligence & Truth Verification Layer
+
+Works on every research paper, across every domain, on every platform — arXiv, PubMed, IEEE, Nature, JSTOR, SSRN, ACM, bioRxiv, Google Scholar, any PDF in your browser.
+
+
+The Unified Vision
+HalluciGuard asked "is this true?"
+ArXiv Lens asked "what does this connect to?"
+Episteme asks both — simultaneously — for every paper ever written.
+
+Core Modules
+🔴 Module 1: Claim Verification Engine
+HalluciGuard, but deeper
+
+Extracts every factual claim from the paper using NLP
+RAG pipeline cross-checks each claim against 200M+ papers (Semantic Scholar + OpenAlex APIs)
+Scores each sentence: Verified / Unverified / Contradicted
+Highlights citation misuse — where authors cite a paper that doesn't actually support their claim
+Detects statistical red flags: p-hacking, underpowered studies, cherry-picked timeframes, misleading confidence intervals
+
+
+🟡 Module 2: Research Intelligence Layer
+ArXiv Lens, expanded to all domains
+
+Semantic paper map: clusters 50+ related papers visually by concept proximity
+Cross-domain connector: finds unexpected links (e.g. this oncology paper connects to a 2019 graph theory paper)
+Research gap radar: what questions this paper raises but doesn't answer
+Hypothesis engine: RAG + LLM generates 3 novel research directions nobody has formally studied
+SOTA tracker: for CS/ML papers, live benchmark leaderboard pulled from Papers With Code
+
+
+🟢 Module 3: Trust & Integrity Scanner
+Brand new — the layer nobody has built
+
+Retraction alert: flags if the paper or any paper it cites has been retracted (via Retraction Watch API)
+Reproducibility score: based on code availability, data sharing, methodology detail, pre-registration
+Conflict of interest detector: analyzes funding disclosures and author affiliations for bias signals
+Peer review transparency: shows review history if available (PLoS, F1000, OpenReview)
+
+
+🔵 Module 4: Personal Research Memory
+Your knowledge, compounded
+
+Every paper you read gets embedded into a local FAISS store
+Natural language search: "that immunology paper about gut bacteria I read in March"
+Concept knowledge graph built across everything you've ever read
+"You might have missed": surfaces a paper from your history that's relevant to what you're reading now
+
+
+Supported Platforms
+PlatformDomainarXivCS, Physics, Math, EconomicsPubMed / bioRxiv / medRxivBiology, MedicineIEEE Xplore / ACMEngineering, CSSSRNFinance, Law, Social ScienceJSTOR / Nature / ScienceAll domainsGoogle ScholarUniversalAny PDF in browserUniversal
+
+Extension (React sidebar)
+│
+├── DOM Parser → detects paper, extracts text + citations
+│
+├── FastAPI Backend (Python)
+│   ├── LangGraph orchestrator (4-node pipeline)
+│   │     ├── Node 1: Claim extractor (spaCy NER + sentence segmentation)
+│   │     ├── Node 2: RAG verifier (FAISS + Semantic Scholar embeddings)
+│   │     ├── Node 3: Integrity scanner (Retraction Watch, CrossRef APIs)
+│   │     └── Node 4: Intelligence synthesizer (LLM + knowledge graph)
+│   │
+│   ├── Fine-tuned claim classifier (your hallucination detection model)
+│   ├── Statistical anomaly detector (custom — p-value analysis, effect size)
+│   ├── Local FAISS store (personal research memory)
+│   └── Knowledge graph (NetworkX → Neo4j for scale)
+│
+└── Deployed → Hugging Face Spaces (API) + Vercel (extension UI)
+
+want extension to be published on microsoft edge and firefox as they are free.
+
+What Episteme Proves To Hiring Managers
+FeatureSkill DemonstratedMulti-domain RAG pipelineProduction RAG architectureFine-tuned claim classifierModel fine-tuning + evaluationLangGraph 4-node orchestrationAgentic AI systemsStatistical anomaly detectionDeep ML/stats knowledgeCross-domain semantic searchEmbedding + vector DB masteryKnowledge graph constructionGraph MLLocal + cloud hybrid inferenceMLOps + cost-aware engineering14+ evaluation metrics dashboardModel evaluation rigor
+
+USERS WORLDWIDE
+              │
+    ┌─────────▼──────────┐
+    │  normal Extension   │  
+    │  (Firefox Add-ons)  │    globally available, auto-updates
+    └─────────┬──────────┘
+              │
+    ┌─────────▼──────────┐
+    │  Cloudflare Workers │  ← Edge layer (200+ cities globally)
+    │  (Edge Routing)     │    handles routing, rate limiting, caching
+    └─────────┬──────────┘
+              │
+    ┌─────────▼──────────────────────────────┐
+    │         FastAPI Backend                 │
+    │   (Railway — multi-region deploy)       │
+    │   US-East / EU-West / Asia-Pacific      │
+    └─┬──────┬──────┬──────┬─────────────────┘
+      │      │      │      │
+      ▼      ▼      ▼      ▼
+  Qdrant  Supabase Upstash  Hugging
+  Cloud   (pgvector) Redis  Face
+  (Vector  (Users,  (Cache,  Spaces
+   DB)     Sessions) Rate    (Models)
+           )         Limit)
+
+           Every API You'll Use
+📚 Research Data APIs
+The knowledge backbone — where all paper data comes from
+APIWhat It Gives YouCostSemantic Scholar200M+ papers, citations, abstracts, embeddings endpointFreeOpenAlex250M+ papers, concepts, institutions, fundingFreeCrossRefDOI resolution, citation metadata, retraction flagsFreearXiv APIFull CS/Physics/Math papers, daily new papers feedFreePubMed / NCBI E-utilities35M+ biomedical papers, MeSH termsFreeCORE API200M+ open access full-text papersFree (10K/mo)Papers With CodeML benchmarks, SOTA leaderboards, code reposFreeUnpaywallFinds free legal full-text for paywalled papersFree
+
+🧬 Embedding APIs
+Turns papers into searchable semantic vectors
+APIModelWhyCohere Embed v3embed-english-v3.0Best for long scientific documentsOpenAI Embeddingstext-embedding-3-largeStrong general purposeSemantic Scholar Embeddingsspecter2Purpose-built for research papersHugging Faceallenai/specter (self-hosted)Free, offline, privacy-first
+
+🛡️ Integrity & Trust APIs
+The truth verification layer
+APIWhat It ChecksCostRetraction Watch (CrossRef)If paper or its citations are retractedFreeORCID APIAuthor identity, affiliation history, conflict of interestFreeDataCite APIResearch data availability and sharingFreeOpenReview APIPeer review history, reviewer scores, rebuttalsFreeClinicalTrials.gov APIPre-registration verification for medical studiesFree
+
+⚙️ Infrastructure & Deployment APIs
+ServiceRoleWhyCloudflare WorkersGlobal edge routing, caching, DDoS protectionFree tier generousRailwayMulti-region FastAPI deployment (US, EU, Asia)Simple, auto-scaleQdrant CloudGlobally distributed vector databaseFree 1GB clusterSupabasePostgreSQL + pgvector + Auth + StorageFree tierUpstash RedisGlobal rate limiting + response cachingFree 10K req/dayHugging Face SpacesHost fine-tuned models publiclyFreeVercelExtension landing page + docs siteFree
+
+🤖 NVIDIA NIM — Your Core AI Engine
+One API key. Everything runs through here.
+NVIDIA NIM ModelRole in EpistemeEndpointmeta/llama-3.1-70b-instructClaim synthesis, hypothesis generation, cross-domain connections/chat/completionsmeta/llama-3.1-8b-instructFast claim scoring, quick summaries (low latency)/chat/completionsnvidia/nv-embedqa-e5-v5Embed papers into vectors for semantic search/embeddingsnvidia/nv-rerankqa-mistral-4b-v3Rerank retrieved papers by relevance/rankingmeta/llama-3.2-11b-vision-instructRead charts, figures, tables inside papers/chat/completionsmistralai/mixtral-8x7b-instructStatistical red flag detection, structured JSON extraction/chat/completions
+
+You already used 6 NVIDIA NIM models in SecureDoc Copilot — this is a direct strength to double down on.
+
+
+📚 Research Data APIs — All Free
+APIFree LimitWhat It Gives EpistemeSemantic ScholarUnlimited200M+ papers, citations, abstractsOpenAlexUnlimited250M+ papers, concepts, funding dataCrossRefUnlimitedDOI resolution, retraction flagsarXiv APIUnlimitedFull CS/Physics/Math papersPubMed NCBIUnlimited35M+ biomedical papersCORE API10K req/monthOpen access full-text papersPapers With CodeUnlimitedML benchmarks, SOTA leaderboardsUnpaywallUnlimitedFree full-text finder for paywalled papersOpenReview APIUnlimitedPeer review history, reviewer scoresORCID APIUnlimitedAuthor profiles, conflict of interest
+
+⚙️ Infrastructure — All Free Tiers
+ServiceFree TierRoleSupabase500MB DB, 50MB vectorUser accounts, paper cache, research memoryQdrant Cloud1GB clusterVector storage for paper embeddingsUpstash Redis10K req/dayCache API responses (same paper = instant)Cloudflare Workers100K req/dayGlobal edge routingRender750hrs/monthFastAPI backend hostingVercelUnlimitedLanding page + docsHugging Face SpacesFreeHost your fine-tuned claim classifierGitHub Actions2000 min/monthCI/CD pipeline
+
+Revised Architecture With NVIDIA NIM
+User opens any research paper
+          │
+          ▼
+Chrome Extension
+          │
+          ▼
+Cloudflare Workers (free edge layer)
+          │
+          ▼
+FastAPI Backend (Render - free)
+          │
+    ┌─────┴──────────────────────────┐
+    │                                │
+    ▼                                ▼
+Research APIs (all free)       NVIDIA NIM (your AI engine)
+│                              │
+├── Semantic Scholar           ├── nv-embedqa → embed paper
+├── OpenAlex                   ├── llama-3.1-70b → synthesize
+├── CrossRef                   ├── nv-rerankqa → rerank results
+├── PubMed                     ├── llama-3.2-vision → read figures
+├── Papers With Code           └── mixtral-8x7b → extract claims
+└── ORCID
+          │
+          ▼
+    Qdrant Cloud (free)
+    Supabase (free)
+    Upstash Redis (free)
+          │
+          ▼
+    Results back to Extension
+
+What Each NVIDIA NIM Model Does — Step By Step
+Paper lands in extension
+        │
+        ├─→ nv-embedqa-e5-v5
+        │     "Embed this paper into a 1024-dim vector"
+        │     → stored in Qdrant → find 50 similar papers
+        │
+        ├─→ mixtral-8x7b
+        │     "Extract all factual claims as JSON"
+        │     → structured list of claims + evidence sentences
+        │
+        ├─→ nv-rerankqa-mistral-4b-v3
+        │     "Rerank these 50 papers by actual relevance"
+        │     → top 10 most relevant returned
+        │
+        ├─→ llama-3.2-11b-vision
+        │     "Read figure 3 and flag any misleading axes"
+        │     → statistical red flags from charts
+        │
+        └─→ llama-3.1-70b
+              "Given these claims + related papers + gaps,
+               generate 3 novel research hypotheses"
+              → hypothesis engine output
+
+Free Tier Limits — Will They Hold?
+ServiceFree LimitEpisteme UsageSafe?NVIDIA NIM~1000 credits~5-10 papers/day during dev✅Semantic ScholarUnlimitedNo limit✅Qdrant Cloud1GB~500K paper embeddings✅Supabase500MBUser data + cache✅Cloudflare Workers100K req/dayMore than enough✅Upstash Redis10K req/dayCache cuts repeat calls✅Render750hrs/monthSpins down when idle⚠️ (slow cold start)
+
+One smart trick: Cache every analyzed paper in Upstash + Supabase. If 100 users read the same arXiv paper, NVIDIA NIM only gets called once. Costs drop dramatically.
+
+
+Summary — Your Entire Stack Is Free + NVIDIA NIM
+AI Engine        → NVIDIA NIM (free credits)
+Research Data    → Semantic Scholar, OpenAlex, CrossRef, PubMed (all free)
+Vector DB        → Qdrant Cloud (free 1GB)
+Database         → Supabase (free tier)
+Cache            → Upstash Redis (free tier)
+Backend          → Render (free tier)
+Edge             → Cloudflare Workers (free tier)
+Frontend/Ext     → Vercel + Chrome Web Store (free)
+CI/CD            → GitHub Actions (free)
+Models Hosting   → Hugging Face Spaces (free)
+Total monthly cost: $0 until you scale past free tier limits.

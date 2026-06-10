@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Episteme – AI Research Intelligence Layer</title>
+  <meta name="description" content="Episteme is a Chrome extension that acts as your AI-powered research copilot. Verify claims, analyze papers, detect bias, and explore knowledge graphs — all inside your browser." />
+  <meta name="keywords" content="research, AI, chrome extension, arXiv, paper verification, scientific integrity, knowledge graph" />
+  <meta property="og:title" content="Episteme – AI Research Intelligence Layer" />
+  <meta property="og:description" content="The truth verification layer for scientific papers. Built for researchers, by researchers." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://episteme.vercel.app" />
+  <link rel="icon" href="icon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="dark" id="body">
+
+  <!-- Animated grid background -->
+  <div class="cyber-grid" id="cyberGrid"></div>
+  <!-- Scanline overlay -->
+  <div class="scanlines"></div>
+  <!-- Floating particles -->
+  <div class="particles" id="particles"></div>
+
+  <!-- ── NAV ──────────────────────────────────────── -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <span class="logo-glyph">⬡</span>
+        <span class="logo-text">EPISTEME</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how-it-works">How It Works</a></li>
+        <li><a href="#stack">Stack</a></li>
+        <li><a href="#download">Download</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+          <span class="theme-icon" id="themeIcon">☀</span>
+        </button>
+        <a href="https://github.com/Techie03/episteme" target="_blank" rel="noopener" class="btn btn-ghost">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── HERO ─────────────────────────────────────── -->
+  <section class="hero" id="hero">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      <span>v1.0.0 — Now Available</span>
+    </div>
+    <h1 class="hero-title">
+      <span class="glitch" data-text="EPISTEME">EPISTEME</span>
+    </h1>
+    <p class="hero-sub">AI Research Intelligence Layer</p>
+    <p class="hero-desc">
+      The Chrome extension that plugs into every scientific paper —<br/>
+      verifying claims, detecting bias, mapping knowledge graphs,<br/>
+      and exposing what the authors didn't say.
+    </p>
+    <div class="hero-cta">
+      <a href="#download" class="btn btn-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download Extension
+      </a>
+      <a href="https://github.com/Techie03/episteme" target="_blank" rel="noopener" class="btn btn-ghost">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+    <div class="hero-terminal">
+      <div class="terminal-bar">
+        <span class="t-dot" style="background:#ff5f57"></span>
+        <span class="t-dot" style="background:#febc2e"></span>
+        <span class="t-dot" style="background:#28c840"></span>
+        <span class="t-title">episteme@research ~</span>
+      </div>
+      <div class="terminal-body" id="terminalBody">
+        <div class="t-line"><span class="t-prompt">❯</span> <span class="t-cmd">analyzing paper: "Attention Is All You Need"</span></div>
+        <div class="t-line t-output">  <span class="t-tag tag-ok">✓ CLAIM</span> Transformer outperforms RNNs on WMT EN-DE by +2.0 BLEU</div>
+        <div class="t-line t-output">  <span class="t-tag tag-warn">⚠ BIAS</span> Self-citation rate: 34% — above threshold</div>
+        <div class="t-line t-output">  <span class="t-tag tag-ok">✓ GAP</span> Identified 3 open research directions</div>
+        <div class="t-line t-output">  <span class="t-tag tag-ok">✓ GRAPH</span> Concept map: 12 nodes, 18 edges rendered</div>
+        <div class="t-line t-output">  <span class="t-tag tag-info">ℹ PEER</span> Mock review draft generated — 4 major concerns</div>
+        <div class="t-line"><span class="t-prompt">❯</span> <span class="t-cursor">_</span></div>
+      </div>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-item"><div class="stat-num">15+</div><div class="stat-label">AI Features</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item"><div class="stat-num">arXiv</div><div class="stat-label">PubMed · Nature · IEEE</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item"><div class="stat-num">LangGraph</div><div class="stat-label">Pipeline Engine</div></div>
+      <div class="stat-divider"></div>
+      <div class="stat-item"><div class="stat-num">NVIDIA</div><div class="stat-label">NIM LLaMA 3.1</div></div>
+    </div>
+  </section>
+
+  <!-- ── FEATURES ──────────────────────────────────── -->
+  <section class="section" id="features">
+    <div class="section-inner">
+      <div class="section-label">// CAPABILITIES</div>
+      <h2 class="section-title">Everything a researcher needs.<br/><span class="gradient-text">In one sidebar.</span></h2>
+      <div class="features-grid">
+
+        <div class="feature-card" data-feature="0">
+          <div class="feature-icon">🔍</div>
+          <div class="feature-body">
+            <h3>Claim Verification Engine</h3>
+            <p>Each claim is extracted, scored for confidence, and cross-referenced with live data sources. Color-coded verdict badges instantly show what holds up.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="1">
+          <div class="feature-icon">🧠</div>
+          <div class="feature-body">
+            <h3>Interactive Knowledge Graph</h3>
+            <p>Real-time canvas-rendered force graph of concepts, methods, and relationships. Click any node to inspect connections and cluster semantics.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="2">
+          <div class="feature-icon">⚖️</div>
+          <div class="feature-body">
+            <h3>Bias Meter & Integrity Score</h3>
+            <p>Self-citation analysis, funding bias flags, methodology red-flags, and a statistical anomaly scanner — all surfaced automatically.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="3">
+          <div class="feature-icon">💡</div>
+          <div class="feature-body">
+            <h3>Jargon Explainer</h3>
+            <p>Highlight any term on the page. An AI-powered floating card explains it in plain language, with a one-click save to your Research Notebook.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="4">
+          <div class="feature-icon">🔭</div>
+          <div class="feature-body">
+            <h3>Hypothesis Generator</h3>
+            <p>Surfaces testable hypotheses from research gaps. One-click generates a full experimental protocol — complete with pseudocode and success metrics.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="5">
+          <div class="feature-icon">📓</div>
+          <div class="feature-body">
+            <h3>Research Notebook</h3>
+            <p>Save highlights, explanations, and notes across papers. Export everything as Obsidian-compatible Markdown — your second brain, built right in.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="6">
+          <div class="feature-icon">👤</div>
+          <div class="feature-body">
+            <h3>Author Impact Network</h3>
+            <p>H-index gauges, affiliation badges, co-author relationships, and top cited publications — all rendered in a scrollable author intelligence panel.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="7">
+          <div class="feature-icon">⏱</div>
+          <div class="feature-body">
+            <h3>Evolution Timeline</h3>
+            <p>Citation lineage visualized chronologically — see exactly how this paper's claims evolved from prior work, and what it contradicted or confirmed.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+        <div class="feature-card" data-feature="8">
+          <div class="feature-icon">🤖</div>
+          <div class="feature-body">
+            <h3>Chat with the Paper</h3>
+            <p>Ask anything. The AI assistant has full paper context and gives grounded, precise answers — with honest "I can't find this in the text" admissions.</p>
+          </div>
+          <div class="feature-glow"></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ──────────────────────────────── -->
+  <section class="section section-alt" id="how-it-works">
+    <div class="section-inner">
+      <div class="section-label">// PIPELINE</div>
+      <h2 class="section-title">How the system works</h2>
+      <div class="pipeline-container">
+        <div class="pipeline-step">
+          <div class="step-num">01</div>
+          <div class="step-body">
+            <h3>Content Script Extracts</h3>
+            <p>Injected into any research page. Extracts title, abstract, full text, authors, DOI, and arXiv ID automatically.</p>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <div class="step-num">02</div>
+          <div class="step-body">
+            <h3>LangGraph Pipeline Fires</h3>
+            <p>A 6-node multi-agent LangGraph DAG runs in parallel — claim extraction, trust scanning, hypothesis synthesis, replication finding, and more.</p>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <div class="step-num">03</div>
+          <div class="step-body">
+            <h3>NIM LLaMA-3.1 Reasons</h3>
+            <p>NVIDIA NIM serves LLaMA 3.1 70B and 8B at near-zero latency. Every synthesis, draft, and explanation is grounded and hallucination-resistant.</p>
+          </div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <div class="step-num">04</div>
+          <div class="step-body">
+            <h3>Sidebar Renders Intelligence</h3>
+            <p>Results stream into the React sidebar — interactive graphs, scored claims, research gaps, and a personal notebook. Cached for instant re-opens.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TECH STACK ────────────────────────────────── -->
+  <section class="section" id="stack">
+    <div class="section-inner">
+      <div class="section-label">// TECH STACK</div>
+      <h2 class="section-title">Built with <span class="gradient-text">production-grade</span> tools</h2>
+      <div class="stack-grid">
+        <div class="stack-card"><div class="stack-icon">⚛️</div><div class="stack-name">React + TypeScript</div><div class="stack-role">Extension UI</div></div>
+        <div class="stack-card"><div class="stack-icon">🐍</div><div class="stack-name">FastAPI</div><div class="stack-role">Backend API</div></div>
+        <div class="stack-card"><div class="stack-icon">🔗</div><div class="stack-name">LangGraph</div><div class="stack-role">Agent Orchestration</div></div>
+        <div class="stack-card"><div class="stack-icon">🟢</div><div class="stack-name">NVIDIA NIM</div><div class="stack-role">LLM Inference</div></div>
+        <div class="stack-card"><div class="stack-icon">🗄️</div><div class="stack-name">Qdrant</div><div class="stack-role">Vector Memory</div></div>
+        <div class="stack-card"><div class="stack-icon">⚡</div><div class="stack-name">Vite</div><div class="stack-role">Build Tooling</div></div>
+        <div class="stack-card"><div class="stack-icon">🤗</div><div class="stack-name">HF Spaces</div><div class="stack-role">Backend Hosting</div></div>
+        <div class="stack-card"><div class="stack-icon">🔺</div><div class="stack-name">Vercel</div><div class="stack-role">Website Hosting</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── DOWNLOAD ──────────────────────────────────── -->
+  <section class="section section-download" id="download">
+    <div class="section-inner">
+      <div class="section-label">// INSTALL</div>
+      <h2 class="section-title">Get Episteme<br/><span class="gradient-text">in 60 seconds</span></h2>
+      <div class="download-cards">
+
+        <!-- Card 1: Chrome Web Store (coming soon) -->
+        <div class="download-card featured">
+          <div class="download-card-header">
+            <div class="download-badge">RECOMMENDED</div>
+            <div class="download-icon">🌐</div>
+          </div>
+          <h3>Chrome Web Store</h3>
+          <p>One-click install. Auto-updates. No manual setup required.</p>
+          <div class="download-steps-mini">
+            <span>1. Click Install</span>
+            <span>→</span>
+            <span>2. Pin Extension</span>
+            <span>→</span>
+            <span>3. Open any paper</span>
+          </div>
+          <a href="#" class="btn btn-primary btn-full coming-soon-btn">
+            Coming Soon to Web Store
+          </a>
+          <div class="download-note">Submit pending Chrome review</div>
+        </div>
+
+        <!-- Card 2: Manual install (zip) -->
+        <div class="download-card">
+          <div class="download-card-header">
+            <div class="download-icon">📦</div>
+          </div>
+          <h3>Manual Install (ZIP)</h3>
+          <p>Download the latest build and load it as an unpacked extension in Chrome or Edge.</p>
+          <div class="download-steps">
+            <div class="d-step"><span class="d-step-num">1</span><span>Download ZIP below</span></div>
+            <div class="d-step"><span class="d-step-num">2</span><span>Open <code>chrome://extensions</code></span></div>
+            <div class="d-step"><span class="d-step-num">3</span><span>Enable <strong>Developer Mode</strong></span></div>
+            <div class="d-step"><span class="d-step-num">4</span><span>Click <strong>Load Unpacked</strong> → select the unzipped folder</span></div>
+          </div>
+          <a href="episteme-extension.zip" download class="btn btn-primary btn-full" id="downloadZipBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download v1.0.0 ZIP
+          </a>
+          <div class="download-note">~267 KB · Chrome MV3 · No account needed</div>
+        </div>
+
+        <!-- Card 3: Source / GitHub -->
+        <div class="download-card">
+          <div class="download-card-header">
+            <div class="download-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+            </div>
+          </div>
+          <h3>Build from Source</h3>
+          <p>Clone the repo, install deps, and build locally. Full control over your environment.</p>
+          <div class="code-block">
+            <div class="code-header">
+              <span>bash</span>
+              <button class="copy-btn" onclick="copyCode(this, 'gitCode')">Copy</button>
+            </div>
+            <pre id="gitCode">git clone https://github.com/Techie03/episteme
+cd episteme/extension
+npm install && npm run build</pre>
+          </div>
+          <a href="https://github.com/Techie03/episteme" target="_blank" rel="noopener" class="btn btn-ghost btn-full">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Backend setup notice -->
+      <div class="backend-notice">
+        <div class="notice-icon">⚡</div>
+        <div class="notice-body">
+          <strong>Backend required.</strong> Episteme needs a running FastAPI backend for AI features. 
+          Run it locally with <code>uvicorn app.main:app</code> or deploy the backend to 
+          <a href="https://huggingface.co/spaces" target="_blank">Hugging Face Spaces</a> (Docker SDK, free tier). 
+          Then set the URL in the extension's <strong>Settings</strong> tab.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ────────────────────────────────────── -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="logo-glyph">⬡</span>
+        <span class="logo-text">EPISTEME</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/Techie03/episteme" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/Techie03/episteme/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/Techie03/episteme/blob/main/README.md" target="_blank" rel="noopener">Docs</a>
+        <a href="https://github.com/Techie03/episteme/releases" target="_blank" rel="noopener">Releases</a>
+      </div>
+      <div class="footer-copy">
+        MIT License · Built with 🔬 by <a href="https://github.com/Techie03" target="_blank" rel="noopener">Techie03</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

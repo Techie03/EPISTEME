@@ -1,3 +1,12 @@
+---
+title: Episteme Backend
+emoji: 🔬
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 8000
+---
+
 # Episteme Backend - Hugging Face Spaces Deployment Guide
 
 Deploy this backend directly to a Hugging Face Space (Docker SDK) using the commands below.

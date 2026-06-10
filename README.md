@@ -274,22 +274,7 @@ pip install -r requirements.txt
 python -m spacy download en_core_web_sm
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
-``` 
-API Server Access
 
-The API server can also be accessed through:
-
-https://nishith374-episteme-backend.hf.space
-
-In the extension, open Settings → API Settings.
-
-You have two options:
-
-Create your own Hugging Face Space and configure your API keys using Secrets.
-Use my hosted API server above and modify the configuration as needed for your use case.
-
-If you choose to use your own Space, make sure to add the required environment variables and secrets before deploying.
-```
 ---
 
 ## 📄 License

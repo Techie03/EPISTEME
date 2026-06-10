@@ -3,7 +3,7 @@ import logging
 import re
 from typing import List, Dict, Any
 import httpx
-from app.config import call_nvidia_nim, get_nvidia_embedding, rerank_passages
+from app.config import call_nvidia_nim, get_nvidia_embedding, rerank_passages, calculate_reading_complexity
 from app.pipeline.models import GraphState
 from app.utils.stats import run_stats_audit
 
@@ -606,12 +606,7 @@ Return your response in strict JSON format:
     benchmarks = []
     peer_review = {}
     evolution_timeline = []
-    complexity = {
-        "difficulty_score": 65,
-        "estimated_reading_time": 20,
-        "prerequisites": ["Graph Neural Networks", "Linear Algebra"],
-        "math_density": "Medium"
-    }
+    complexity = calculate_reading_complexity(state.raw_text, state.title)
     replication_repos = []
     related_videos = []
     author_network = []

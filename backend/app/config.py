@@ -642,6 +642,65 @@ if __name__ == "__main__":
 """
     return markdown_protocol
 
+def calculate_reading_complexity(text: str, title: str) -> dict:
+    # Estimate word count
+    words = text.split()
+    word_count = len(words)
+    
+    # Estimate reading time (average scientific reading speed is ~150-180 words per minute)
+    # Give a base of 5 minutes, plus 1 minute per 150 words
+    est_reading_time = max(5, min(60, int(word_count / 150) + 5))
+    
+    # Calculate math density by counting math symbols and variables
+    math_symbols = re.findall(r'[\+\-\*\/=\\\(\)\{\}\[\]\^\_]|\b(sum|int|log|exp|lim|alpha|beta|gamma|theta|lambda|sigma|mu|epsilon|omega)\b', text.lower())
+    math_density_ratio = len(math_symbols) / max(1, word_count)
+    
+    if math_density_ratio > 0.05:
+        math_density = "High"
+        math_bonus = 20
+    elif math_density_ratio > 0.02:
+        math_density = "Medium"
+        math_bonus = 10
+    else:
+        math_density = "Low"
+        math_bonus = 0
+
+    # Calculate difficulty score based on title length, word count, and math density
+    # A short text indicates an abstract or snippet, which has higher density but lower total reading difficulty
+    text_len_factor = min(30, int(word_count / 100))
+    difficulty_score = min(95, max(30, 45 + math_bonus + text_len_factor))
+    
+    # Determine prerequisites
+    title_lower = title.lower()
+    prerequisites = []
+    
+    if "graph" in title_lower or "gnn" in title_lower or "node" in title_lower:
+        prerequisites.append("Graph Neural Networks")
+        prerequisites.append("Graph Theory")
+    elif "attention" in title_lower or "transformer" in title_lower or "llama" in title_lower or "language" in title_lower or "gpt" in title_lower:
+        prerequisites.append("Transformer Architectures")
+        prerequisites.append("Natural Language Processing")
+    elif "diffusion" in title_lower or "image" in title_lower or "vision" in title_lower or "cnn" in title_lower:
+        prerequisites.append("Computer Vision")
+        prerequisites.append("Deep Generative Models")
+    else:
+        prerequisites.append("Machine Learning Basics")
+        
+    if math_density in ["High", "Medium"]:
+        prerequisites.append("Linear Algebra")
+        prerequisites.append("Probability & Statistics")
+    else:
+        prerequisites.append("Probability Theory")
+        
+    prerequisites.append("Optimization Algorithms")
+    
+    return {
+        "difficulty_score": difficulty_score,
+        "estimated_reading_time": est_reading_time,
+        "prerequisites": prerequisites[:3],  # Keep top 3
+        "math_density": math_density
+    }
+
 def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
     title_lower = title.lower()
     
@@ -852,16 +911,7 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
             ]
         })
 
-    complexity = {
-        "difficulty_score": 70 if domain != "General" else 60,
-        "estimated_reading_time": 25,
-        "prerequisites": [
-            f"{domain} Systems" if domain != "General" else "Advanced Data Structures",
-            "Optimization Theory",
-            "Linear Algebra"
-        ],
-        "math_density": "Medium" if domain != "LLM" else "High"
-    }
+    complexity = calculate_reading_complexity(paper_text, title)
     
     response_data = {
         "research_gaps": research_gaps,

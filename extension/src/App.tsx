@@ -113,6 +113,36 @@ interface AnalysisResult {
   author_network?: AuthorProfile[];
 }
 
+const DEFAULT_BACKEND = 'https://nishith374-episteme-backend.hf.space';
+
+async function generateAuthToken(): Promise<string> {
+  const SECRET_SALT = "EpistemeSecureSalt2026";
+  const now = Math.floor(Date.now() / 60000); // changes every minute
+  const message = `${now}:${SECRET_SALT}`;
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+const fetchWithAuth = async (url: string, options: any = {}): Promise<Response> => {
+  const cleanUrl = url.trim();
+  const isDefaultBackend = cleanUrl.includes(DEFAULT_BACKEND) || cleanUrl.includes('nishith374-episteme-backend.hf.space');
+  
+  const headers = options.headers || {};
+  if (isDefaultBackend) {
+    try {
+      const token = await generateAuthToken();
+      headers['X-Episteme-Auth-Token'] = token;
+    } catch (e) {
+      console.error("Failed to generate auth token:", e);
+    }
+  }
+  options.headers = headers;
+  return fetch(url, options);
+};
+
 const renderFormattedMessage = (content: string) => {
   if (!content) return null;
   
@@ -529,7 +559,7 @@ export default function App() {
     } else {
       // Direct local fetch fallback
       const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-      fetch(`${cleanUrl}/api/chat`, {
+      fetchWithAuth(`${cleanUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -560,7 +590,7 @@ export default function App() {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 3000);
       const cleanUrl = checkUrl.trim().replace(/\/$/, "");
-      const res = await fetch(`${cleanUrl}/api/health`, {
+      const res = await fetchWithAuth(`${cleanUrl}/api/health`, {
         method: 'GET',
         signal: controller.signal
       });
@@ -692,7 +722,7 @@ export default function App() {
       } else {
         try {
           const cleanUrl = baseUrl.trim().replace(/\/$/, "");
-          const response = await fetch(`${cleanUrl}/api/paper/${paperId}`);
+          const response = await fetchWithAuth(`${cleanUrl}/api/paper/${paperId}`);
           if (response.ok) {
             const data = await response.json();
             setAnalysisResult(data);
@@ -790,7 +820,7 @@ export default function App() {
     } else {
       // Direct local fetch fallback for direct browser debugging
       const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-      fetch(`${cleanUrl}/api/analyze`, {
+      fetchWithAuth(`${cleanUrl}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -865,7 +895,7 @@ export default function App() {
         });
       } else {
         const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-        fetch(`${cleanUrl}/api/history`, { method: 'DELETE' }).catch(() => {});
+        fetchWithAuth(`${cleanUrl}/api/history`, { method: 'DELETE' }).catch(() => {});
       }
     } catch (e: any) {
       alert(`Error clearing history: ${e.message}`);
@@ -1108,7 +1138,7 @@ export default function App() {
       // Fallback for direct browser debugging (non-extension environment)
       const cleanUrl = backendUrl.trim().replace(/\/$/, '');
       try {
-        const res = await fetch(`${cleanUrl}/api/explain`, {
+        const res = await fetchWithAuth(`${cleanUrl}/api/explain`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phrase: selectedText })
@@ -1284,7 +1314,7 @@ export default function App() {
         });
       } else {
         const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-        fetch(`${cleanUrl}/api/compare`, {
+        fetchWithAuth(`${cleanUrl}/api/compare`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -1332,7 +1362,7 @@ export default function App() {
     } else {
       try {
         const cleanUrl = backendUrl.trim().replace(/\/$/, "");
-        const res = await fetch(`${cleanUrl}/api/experiment/plan`, {
+        const res = await fetchWithAuth(`${cleanUrl}/api/experiment/plan`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)

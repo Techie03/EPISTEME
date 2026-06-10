@@ -353,9 +353,13 @@ Return any issues in JSON format:
             
     # Default chart flags if none detected but sample size is small
     if not chart_flags and len(stats_anomalies) > 0:
+        all_figures = re.findall(r'\b(Figure \d+|Fig\. \d+)\b', state.raw_text, re.IGNORECASE)
+        target_fig = "Figure 1"
+        if all_figures:
+            target_fig = all_figures[0].replace("Fig. ", "Figure ").replace("fig. ", "Figure ").capitalize()
         chart_flags = [{
-            "figure": "Figure 3",
-            "issue": "Confidence intervals/error bars are not visually plotted in the comparison bar chart.",
+            "figure": target_fig,
+            "issue": f"Confidence intervals/error bars are not visually plotted in the comparison charts for {target_fig}.",
             "severity": "Low"
         }]
 

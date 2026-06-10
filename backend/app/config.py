@@ -349,14 +349,7 @@ def generate_dynamic_peer_review(title: str, claims: list, domain: str) -> dict:
         f"Proposes a well-structured framework that directly addresses {domain}-specific complexities.",
         "The empirical evaluations demonstrate measurable improvements over the baseline models."
     ]
-    if claims:
-        claim_snippet = claims[0].replace("\n", " ").strip()
-        if len(claim_snippet) > 80:
-            claim_snippet = claim_snippet[:77] + "..."
-        strengths.append(f"Provides empirical support for: '{claim_snippet}'")
-    else:
-        strengths.append("The theoretical claims are backed by rigorous complexity proofs.")
-        
+    
     weaknesses = [
         f"The proposed method is mostly validated on standard benchmarks. Performance under extreme noise or out-of-distribution scales remains an open question.",
         "The computational runtime and peak memory consumption are not fully characterized against all edge cases."
@@ -367,6 +360,30 @@ def generate_dynamic_peer_review(title: str, claims: list, domain: str) -> dict:
         "What are the primary performance degradation patterns when scaling inputs beyond the reported thresholds?"
     ]
     
+    if claims:
+        # Dynamically customize strengths based on claims
+        for c in claims[:2]:
+            claim_snippet = c.replace("\n", " ").strip()
+            if len(claim_snippet) > 80:
+                claim_snippet = claim_snippet[:77] + "..."
+            strengths.append(f"Provides empirical support for: '{claim_snippet}'")
+            
+        # Dynamically customize weakness based on first claim details
+        first_claim_lower = claims[0].lower()
+        match_dataset = re.search(r'\b(cora|imagenet|mnist|cifar|pubmed|arxiv|squad|glue)\b', first_claim_lower)
+        if match_dataset:
+            ds = match_dataset.group(1).capitalize()
+            weaknesses[0] = f"The validation is heavily indexed on the {ds} dataset. Evaluation on larger scale or more heterogeneous datasets is needed to establish broad generalization."
+            questions[0] = f"Could the authors provide validation results on datasets that scale significantly larger than {ds}?"
+            
+        match_stat = re.search(r'\b(\d+(?:\.\d+)?%|\d+\.\d+)\b', first_claim_lower)
+        if match_stat:
+            stat = match_stat.group(1)
+            weaknesses.append(f"The reported improvement of {stat} appears under specific hyperparameters; sensitivity analysis across variable settings is sparse.")
+            questions.append(f"How sensitive is the {stat} performance gain to modifications in the network's capacity or optimizer learning rate?")
+    else:
+        strengths.append("The theoretical claims are backed by rigorous complexity proofs.")
+        
     return {
         "strengths": strengths,
         "weaknesses": weaknesses,
@@ -408,6 +425,222 @@ def generate_dynamic_timeline(title: str, authors: list, text: str) -> list[dict
             "claim_mutation": "Extends the current approach to adapt to dynamic network topologies and zero-shot scenarios."
         }
     ]
+
+def verify_claim_dynamically(prompt: str) -> str:
+    claim_match = re.search(r'Claim:\s*"(.*?)"', prompt, re.IGNORECASE | re.DOTALL)
+    claim = claim_match.group(1).strip() if claim_match else "the proposed scientific findings"
+    
+    evidence_match = re.search(r'Academic Evidence:\s*(.*?)(?:\n\nDetermine|\Z)', prompt, re.IGNORECASE | re.DOTALL)
+    evidence = evidence_match.group(1).strip() if evidence_match else ""
+    
+    stop_words = {"the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "from", "up", "about", "into", "over", "after", "is", "was", "were", "are", "be", "been", "being", "have", "has", "had", "do", "does", "did", "we", "our", "their", "this", "that", "these", "those", "it", "its"}
+    
+    claim_words = [w.strip(".,;:?!'\"()[]").lower() for w in claim.split()]
+    claim_words = [w for w in claim_words if w and w not in stop_words and len(w) > 2]
+    
+    papers = []
+    parts = re.split(r'\[(\d+)\]\s*Title:\s*', evidence)
+    if len(parts) > 2:
+        for idx in range(1, len(parts), 2):
+            num = parts[idx]
+            rest = parts[idx+1]
+            lines = rest.split('\n')
+            title = lines[0].strip() if lines else "Evidence Paper"
+            abstract = ""
+            for line in lines[1:]:
+                if line.strip().lower().startswith("abstract:"):
+                    abstract = line[9:].strip()
+                elif line.strip():
+                    abstract += " " + line.strip()
+            papers.append({
+                "index": num,
+                "title": title,
+                "abstract": abstract.strip()
+            })
+            
+    best_paper = None
+    best_overlap = []
+    
+    for paper in papers:
+        paper_text = (paper["title"] + " " + paper["abstract"]).lower()
+        overlap = [w for w in claim_words if w in paper_text]
+        if len(overlap) > len(best_overlap):
+            best_overlap = overlap
+            best_paper = paper
+            
+    if best_paper and len(best_overlap) >= 1:
+        status = "Verified"
+        overlap_str = ", ".join(best_overlap[:3])
+        explanation = f"The claim is supported by academic studies, specifically [{best_paper['index']}] '{best_paper['title']}', which confirms findings regarding {overlap_str}."
+    else:
+        status = "Unverified"
+        keywords_str = ", ".join(claim_words[:2]) if claim_words else "methodology"
+        explanation = f"No direct empirical overlap was found in the cited literature for the specific claim regarding {keywords_str}."
+        
+    return json.dumps({
+        "status": status,
+        "explanation": explanation
+    })
+
+def generate_dynamic_visual_integrity_mock(prompt: str) -> str:
+    figures = re.findall(r'\b(Figure \d+|Fig\. \d+)\b', prompt, re.IGNORECASE)
+    seen = set()
+    unique_figures = []
+    for f in figures:
+        f_clean = f.replace("Fig. ", "Figure ").replace("fig. ", "Figure ").capitalize()
+        if f_clean not in seen:
+            seen.add(f_clean)
+            unique_figures.append(f_clean)
+            
+    chart_flags = []
+    if unique_figures:
+        issues_pool = [
+            ("Truncated Y-axis configuration which artificially exaggerates difference between baselines.", "Medium"),
+            ("Omission of standard error bars or standard deviation intervals in benchmark charts.", "Low"),
+            ("Lack of clear label coordinates or unit definitions on the visual axis plot.", "Low"),
+            ("Potential scale mismatch between the reported textual percentage gains and visual height representations.", "Medium")
+        ]
+        
+        for idx, fig in enumerate(unique_figures[:2]):
+            issue_text, severity = issues_pool[idx % len(issues_pool)]
+            chart_flags.append({
+                "figure": fig,
+                "issue": f"{issue_text} Verified in descriptions matching {fig}.",
+                "severity": severity
+            })
+        data_consistency = f"The textual descriptions for {', '.join(unique_figures[:2])} are mathematically consistent with the main text report, though visual presentations lack standard dispersion markers."
+    else:
+        data_consistency = "No visual figures or charts were detected in the provided text excerpts for auditing."
+        
+    return json.dumps({
+        "chart_flags": chart_flags,
+        "data_consistency": data_consistency
+    })
+
+def generate_dynamic_experiment_plan_mock(prompt: str) -> str:
+    title_match = re.search(r'Paper Title context:\s*(.*?)\n', prompt)
+    title = title_match.group(1).strip() if title_match else "Selected Paper"
+    
+    hyp_name_match = re.search(r'Hypothesis Name:\s*(.*?)\n', prompt)
+    hyp_name = hyp_name_match.group(1).strip() if hyp_name_match else "Proposed Hypothesis"
+    
+    hyp_desc_match = re.search(r'Hypothesis Description:\s*(.*?)\n', prompt)
+    hyp_desc = hyp_desc_match.group(1).strip() if hyp_desc_match else "Dynamic experimental validation setup"
+    
+    title_lower = title.lower()
+    library_imports = "import torch\nimport numpy as np"
+    data_loading = "# Load dataset\\n    dataset = load_data()"
+    model_init = "# Initialize baseline model\\n    model = BaselineModel()"
+    
+    if "graph" in title_lower or "gnn" in title_lower or "cora" in title_lower or "node" in title_lower:
+        library_imports = "import torch\nimport torch.nn as nn\nimport networkx as nx\nfrom dgl.data import CoraGraphDataset"
+        data_loading = """# Load Cora dataset using DGL or similar
+    dataset = CoraGraphDataset()
+    g = dataset[0]
+    features = g.ndata['feat']
+    labels = g.ndata['label']"""
+        model_init = """# Setup Graph Convolutional Model
+    model = GCN(features.shape[1], 16, dataset.num_classes)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)"""
+    elif "attention" in title_lower or "transformer" in title_lower or "llama" in title_lower or "language" in title_lower:
+        library_imports = "import torch\nimport torch.nn as nn\nfrom transformers import AutoModelForCausalLM, AutoTokenizer"
+        data_loading = """# Load tokenizer and model weights
+    tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-3.2-1B")
+    model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")"""
+        model_init = """# Set up optimizer and training prompts
+    inputs = tokenizer("Verify the hypothesis context...", return_tensors="pt")
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-5)"""
+    elif "image" in title_lower or "diffusion" in title_lower or "vision" in title_lower:
+        library_imports = "import torch\nimport torchvision.transforms as transforms\nfrom PIL import Image"
+        data_loading = """# Define transform pipeline and dataset
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor(),
+    ])
+    # Load dataset sample
+    dataset = torchvision.datasets.ImageFolder(root='./data', transform=transform)"""
+        model_init = """# Load pre-trained ResNet or vision transformer
+    model = torchvision.models.resnet50(pretrained=True)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)"""
+        
+    markdown_protocol = f"""# Experimental Protocol: {hyp_name}
+
+## 1. Overview & Objective
+This experimental protocol is designed to empirically validate the hypothesis **"{hyp_name}"** proposed in the context of the research paper **"{title}"**.
+* **Hypothesis under test**: {hyp_desc}
+* **Goal**: Systematically verify whether the implementation of the proposed framework achieves statistically significant improvements over the designated baseline models under standard evaluation bounds.
+
+## 2. Prerequisites & Libraries
+The experiment requires a Python 3.10+ environment with GPU acceleration support (CUDA 11.8+ recommended).
+Ensure the following packages are installed:
+```bash
+pip install numpy pandas scikit-learn
+pip install torch torchvision
+```
+
+## 3. Experimental Variables
+* **Independent Variable**: Application of the proposed optimization (**{hyp_name}**) vs standard baseline architectures.
+* **Dependent Variables**: 
+  - Model classification accuracy or performance metrics.
+  - Execution speed/latency profiles (measured in milliseconds per pass).
+* **Control Variables**: Batch size (default: 32), learning rate schedule, random seed initialized to `42` for statistical convergence, and dataset split ratios.
+
+## 4. Step-by-Step Execution
+1. **Environment Setup**: Initialize a virtual environment and configure reproducibility parameters using `torch.manual_seed(42)`.
+2. **Data Pipeline**: Preprocess and segment the evaluation dataset into training (80%), validation (10%), and testing (10%) partitions.
+3. **Baseline Evaluation**: Execute training and inference phases using the unmodified baseline model to compute baseline throughput and accuracy metrics.
+4. **Active Variant Integration**: Modify the architecture parameters or pipeline layers according to the description: *"{hyp_desc}"*.
+5. **A/B Performance Verification**: Execute the training loops for 100 epochs, logging accuracy gains, error counts, and execution latency at 5-epoch boundaries.
+6. **Significance Testing**: Run a two-tailed paired t-test comparing variant accuracy to the baseline over 5 independent seeds.
+
+## 5. Sample Validation Script (Python)
+Below is a structured Python template illustrating the core experimental setup:
+
+```python
+# ==============================================================================
+# {hyp_name} - Verification Harness
+# Context Paper: {title}
+# ==============================================================================
+
+{library_imports}
+import time
+
+def run_evaluation():
+    # Set seed for reproducibility
+    torch.manual_seed(42)
+    np.random.seed(42)
+
+    {data_loading}
+
+    {model_init}
+    
+    print("Beginning validation cycle...")
+    start_time = time.time()
+    
+    # Simulation of verification loop
+    # In actual runs, replace with epoch steps
+    loss_history = []
+    for epoch in range(1, 11):
+        # Simulated loss curve
+        loss = 0.5 / epoch
+        loss_history.append(loss)
+        print(f"Epoch {{epoch}}/10 | Loss: {{loss:.4f}}")
+        
+    elapsed = time.time() - start_time
+    print(f"Evaluation completed in {{elapsed:.2f}} seconds.")
+    print("Hypothesis validation metrics computed successfully.")
+
+if __name__ == "__main__":
+    run_evaluation()
+```
+
+## 6. Success Metrics
+* **Accuracy Threshold**: The variant model must achieve a performance parameter within 0.5% of the baseline while showing a measurable improvement in secondary criteria.
+* **Statistical Rigor**: The paired t-test comparing accuracy curves must achieve a significance value of $p < 0.05$.
+* **Replication Threshold**: The execution profile should fall within 1.1x of the paper's claimed speedups or metrics.
+"""
+    return markdown_protocol
 
 def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
     title_lower = title.lower()
@@ -596,10 +829,14 @@ def get_dynamic_llama_mock(title: str, last_msg: str) -> str:
     extracted_authors = extract_authors_from_text(paper_text, title)
     affiliation = extract_affiliation_from_text(paper_text)
     replication_repos = extract_replication_repos_from_text(paper_text, title)
-    peer_review = generate_dynamic_peer_review(title, [], domain)
+    
+    # Extracted dynamic claims used for peer review
+    dynamic_claims = extract_dynamic_claims_from_text(paper_text)
+    peer_review = generate_dynamic_peer_review(title, [c["claim"] for c in dynamic_claims] if dynamic_claims else [], domain)
     timeline_events = generate_dynamic_timeline(title, extracted_authors, paper_text)
 
     author_network = []
+    import math
     for idx, auth in enumerate(extracted_authors):
         author_network.append({
             "name": auth,
@@ -656,13 +893,16 @@ def get_mock_response(model: str, messages: list) -> str:
         return json.dumps(claims)
         
     elif "llama-3.1-70b-instruct" in model or "llama-3.1-8b-instruct" in model:
-        if "verify the following scientific claim" in last_msg.lower() or "determine if this claim is" in last_msg.lower():
-            return """{
-                "status": "Verified",
-                "explanation": "The claim is supported by academic studies on sparse reduction in graph convolutional architectures."
-            }"""
-        elif "research_gaps" in last_msg.lower() or "novel research directions" in last_msg.lower() or "hypotheses" in last_msg.lower():
-            # Parse title from prompt content
+        # 1. Experimental protocol design check
+        if "experimental protocol" in last_msg.lower() or "validate the following research hypothesis" in last_msg.lower():
+            return generate_dynamic_experiment_plan_mock(last_msg)
+            
+        # 2. RAG Claim Verification check
+        elif "verify the following scientific claim" in last_msg.lower() or "determine if this claim is" in last_msg.lower():
+            return verify_claim_dynamically(last_msg)
+            
+        # 3. Gaps/Hypothesis/Peer Review check
+        elif "research_gaps" in last_msg.lower() or "novel research directions" in last_msg.lower() or "hypotheses" in last_msg.lower() or "peer-review" in last_msg.lower():
             title = "Selected Research Paper"
             title_match = re.search(r'Title:\s*(.*?)\n', last_msg)
             if title_match:
@@ -678,15 +918,6 @@ def get_mock_response(model: str, messages: list) -> str:
         return f"Mock synthesis response for model {model} based on prompt contents."
     
     elif "llama-3.2-11b-vision" in model:
-        return """{
-            "chart_flags": [
-                {
-                    "figure": "Figure 3",
-                    "issue": "Misleading Y-axis starting at 85% instead of 0% to exaggerate accuracy differences",
-                    "severity": "Medium"
-                }
-            ],
-            "data_consistency": "Consistent with textual report, though error bars are omitted in benchmark comparison charts."
-        }"""
+        return generate_dynamic_visual_integrity_mock(last_msg)
         
     return "Mock response default placeholder."

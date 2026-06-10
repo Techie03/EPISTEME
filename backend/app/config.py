@@ -669,6 +669,11 @@ def get_mock_response(model: str, messages: list) -> str:
                 title = title_match.group(1).strip()
             return get_dynamic_llama_mock(title, last_msg)
             
+        # Check developer/nishith questions
+        last_msg_lower = last_msg.lower()
+        if any(w in last_msg_lower for w in ["developer", "nishith", "creator", "created"]):
+            return "Nishith is the developer of Episteme. The model/AI is secondary, but Nishith created it."
+
         # Generic summary/synthesis
         return f"Mock synthesis response for model {model} based on prompt contents."
     

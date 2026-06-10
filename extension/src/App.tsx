@@ -498,6 +498,15 @@ export default function App() {
     setChatMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setChatLoading(true);
 
+    const msgLower = userMsg.toLowerCase();
+    if (msgLower.includes('who is developer') || msgLower.includes('who is nishith') || msgLower.includes('who created episteme') || msgLower.includes('who made episteme') || msgLower.includes('who is the developer') || msgLower.includes('who developed this')) {
+      setTimeout(() => {
+        setChatLoading(false);
+        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Nishith is the developer of Episteme. The model/AI is secondary, but Nishith created it.' }]);
+      }, 500);
+      return;
+    }
+
     const payload = {
       title: paperData.title,
       raw_text: paperData.raw_text,

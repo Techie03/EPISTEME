@@ -48,6 +48,7 @@ In modern academic research, manually checking the validity of every cited state
 | Obscured corporate funding and bias | **COI Funding Bias Meter** computes corporate vs. public distributions and displays them in HSL-colored indicators. |
 | Inability to evaluate replication state | **Replication Finder** queries open repository indices to fetch stars, forks, languages, and Docker build configs. |
 | Permissions policy clipboard errors in secure IFrames | **Cross-origin delegation system** routes copy calls to the host frame context to ensure stable quick-copy interactions. |
+| Complex math density and difficulty mapping | **Readability Metric & Time Gauge** analyzes paper mathematical text and estimates reading speeds dynamically. |
 
 ---
 
@@ -94,16 +95,26 @@ episteme/
 
 ---
 
-## 🛠️ Algorithmic Pipeline — Deep Dive
+## 🛠️ Algorithmic Pipeline & Execution Deep Dive
 
-### Stage 1: Technical Nomenclature & Claim Extraction
-Before verification, spaCy segments sentences and a lightweight LLM (`meta/llama-3.1-8b-instruct`) extracts factual claims, isolating numerical benchmarks, comparative results, and core hypotheses.
+### Node-by-Node Graph Execution Overview
+The backend pipeline operates as a **6-node parallelized LangGraph Directed Acyclic Graph (DAG)**:
 
-### Stage 2: Parallelized Multi-Agent Graph Orchestration
-LangGraph schedules parallel execution threads to optimize payload retrieval speeds:
-* **Extractor & Reference Nodes:** Execute context crawls on author history and DOI bibliographies.
-* **Integrity Scanner:** Analyzes the paper's methodology section to detect low sample sizes ($N < 30$) or self-citations.
-* **RAG Verifier:** Searches Qdrant vector spaces using `nv-embedqa-e5-v5` embeddings to find confirming or refuting publications.
+* **Node 1: Claim Extractor (`claim_extractor_node`)**
+  Segments target text blocks using spaCy NER. Identifies primary mathematical assertions, benchmarks, and claims.
+  * *Inference Model:* NVIDIA NIM `meta/llama-3.1-8b-instruct`.
+* **Node 2: Reference Resolver (`reference_resolver_node`)**
+  Queries CrossRef and OpenAlex registries to resolve DOIs and crawl citation maps of cited bibliography entries.
+* **Node 3: Integrity & Bias Scanner (`integrity_scanner_node`)**
+  Scans disclosures to detect corporate funding bias. Analyzes self-citation rates and checks methodologies for circular reasoning.
+  * *Inference Model:* NVIDIA NIM `mistralai/mixtral-8x7b-instruct`.
+* **Node 4: Claim Verifier (`claim_verifier_node`)**
+  Embeds extracted assertions using `nvidia/nv-embedqa-e5-v5` and searches Qdrant vector databases to classify claims as `Verified`, `Unverified`, or `Contradicted`.
+* **Node 5: Intelligence Synthesizer (`intelligence_synthesizer_node`)**
+  Assembles reviews, calculates mathematical readability scores, and synthesizes 3 future research directions.
+  * *Inference Model:* NVIDIA NIM `meta/llama-3.1-70b-instruct`.
+* **Node 6: Replication & Video Parser (`video_parser_node`)**
+  Locates open-source codebases, Docker files, and matches active topics against conceptual YouTube video lists.
 
 ### Stage 3: Statistical Power Calculations ($1 - \beta$)
 Statistical validity is evaluated locally inside the sidebar. Given effect size ($d$), sample size ($N$), and significance level ($\alpha$), Episteme computes statistical power using a normal cumulative distribution approximation:
@@ -111,6 +122,136 @@ Statistical validity is evaluated locally inside the sidebar. Given effect size 
 $$Z_{1-\beta} = \sqrt{\frac{N \cdot d^2}{2}} - Z_{1-\alpha/2}$$
 
 $$Power = \Phi(Z_{1-\beta})$$
+
+---
+
+## 🗄️ Caching & Caching Architecture
+To optimize latency and control token costs, Episteme routes data requests through a multi-tiered caching structure:
+
+```text
+                  [POST /api/analyze]
+                           │
+                 (Lookup Cache Key)
+                           ▼
+                 [Upstash Redis Cache] ──(Hit)──> [Return Cached JSON]
+                           │
+                        (Miss)
+                           ▼
+           [Supabase DB / pgvector Check] ──(Hit)──> [Save to Redis & Return]
+                           │
+                        (Miss)
+                           ▼
+             [Run LangGraph Agent Pipeline]
+                           │
+                 (Write to DB & Redis)
+                           ▼
+                    [Return Output]
+```
+
+---
+
+## 📡 API Interface Specifications
+
+<details>
+<summary><b>1. POST /api/analyze (Analyze Research Paper)</b></summary>
+
+### Request Payload (`Content-Type: application/json`)
+```json
+{
+  "title": "Attention Is All You Need",
+  "abstract": "We propose a new simple network architecture, the Transformer...",
+  "full_text": "...",
+  "doi": "10.48550/arXiv.1706.03762",
+  "arxiv_id": "1706.03762"
+}
+```
+
+### Success Response (`200 OK`)
+```json
+{
+  "status": "success",
+  "claims": [
+    {
+      "id": "claim_0",
+      "sentence": "The Transformer achieves 28.4 BLEU on the WMT 2014 English-to-German translation task.",
+      "verdict": "Verified",
+      "confidence": 0.98,
+      "evidence_papers": [
+        {
+          "title": "BLEU: a Method for Automatic Evaluation of Machine Translation",
+          "citation_url": "https://doi.org/10.3115/1073083.1073135"
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "coi_score": 0.15,
+    "reproducibility_factor": 0.85,
+    "statistical_power": 0.95,
+    "methodology_flags": []
+  },
+  "author_network": [
+    {
+      "name": "Ashish Vaswani",
+      "affiliation": "Google Brain",
+      "h_index": 42,
+      "co_authors": ["Noam Shazeer", "Niki Parmar"],
+      "top_papers": [
+        {
+          "title": "Attention Is All You Need",
+          "year": 2017,
+          "citations": 120000
+        }
+      ]
+    }
+  ]
+}
+```
+</details>
+
+<details>
+<summary><b>2. POST /api/explain (Highlight Jargon Explanation)</b></summary>
+
+### Request Payload
+```json
+{
+  "term": "Self-Attention Mechanism",
+  "context": "An attention mechanism relating different positions of a single sequence..."
+}
+```
+
+### Success Response (`200 OK`)
+```json
+{
+  "term": "Self-Attention Mechanism",
+  "explanation": "A process where an algorithm weighs the importance of different words in a sentence relative to each other, allowing the model to capture context regardless of position.",
+  "prerequisites": ["Attention", "Neural Networks"]
+}
+```
+</details>
+
+---
+
+## 🛡️ Security, CORS & IFrame Clipboard Delegation
+
+* **Clipboard Access in Cross-Origin IFrames:** 
+  Standard Chrome MV3 extensions running inside cross-origin iframes (like PDF readers) throw a `Permissions policy violation: The Clipboard API has been blocked` error during `navigator.clipboard.writeText` calls. 
+  
+  Episteme bypasses this restriction by delegating clipboard writing:
+  1. The extension UI posts a message containing text payload: `window.parent.postMessage({ type: 'copy_to_clipboard', text }, "*")`.
+  2. The Content Script (running in the main host window context) receives the event.
+  3. The Content Script writes the text directly to the clipboard using unrestricted host-level APIs.
+* **CORS Settings:**
+  To support cross-origin API calls from arbitrary extension host contexts, `backend/app/main.py` enforces wildcard allowances:
+  ```python
+  app.add_middleware(
+      CORSMiddleware,
+      allow_origins=["*"],
+      allow_credentials=True,
+      allow_methods=["*"],
+      allow_headers=["*"],
+  )
+  ```
 
 ---
 
